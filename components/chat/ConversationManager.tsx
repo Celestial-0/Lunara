@@ -452,7 +452,7 @@ export function ConversationManager({
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="text-center py-12 flex flex-col items-center"
+                        className="text-center py-12 flex flex-col items-center "
                       >
                         <MessageSquare className="w-12 h-12 text-muted-foreground mb-4" />
                         <p className="text-muted-foreground mb-4">
@@ -496,7 +496,7 @@ export function ConversationManager({
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className={cn(
-                              "p-4 border cursor-pointer group rounded-lg",
+                              "p-4 border cursor-pointer group rounded-lg max-w-prose",
                               currentConversation?.id === conversation.id
                                 ? "border-primary bg-primary/5"
                                 : "border-border hover:border-primary/50",

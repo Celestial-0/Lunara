@@ -72,8 +72,8 @@ A modern, real-time AI chat application built with Next.js, featuring voice chat
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/Lunara-chat.git
-   cd Lunara-chat
+   git clone https://github.com/Celestial-0/Lunara.git
+   cd Lunara
    ```
 
 2. **Install dependencies**
