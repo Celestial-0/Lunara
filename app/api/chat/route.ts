@@ -130,15 +130,25 @@ export async function POST(request: NextRequest) {
         content: aiResponse,
         role: 'assistant',
       },
-    });
-
-    // Generate conversation title if this is the first exchange
+    });    // Generate conversation title if this is the first exchange or title is still "New Conversation"
     let conversationTitle = conversation.title;
-    if (!conversationTitle && conversation.messages.length === 0) {
+    const shouldGenerateTitle = !conversationTitle ||
+      conversationTitle === "New Conversation" ||
+      conversation.messages.length === 0;
+
+    if (shouldGenerateTitle) {
       try {
         const titlePrompt = `Based on this conversation starter: "${message}", generate a short, descriptive title (max 50 characters) for this conversation. Only return the title, nothing else.`;
         const titleResult = await model.generateContent(titlePrompt);
         conversationTitle = titleResult.response.text().trim().replace(/['"]/g, '');
+
+        // Limit title length and ensure it's not empty
+        if (conversationTitle.length > 50) {
+          conversationTitle = conversationTitle.substring(0, 50).trim();
+        }
+        if (!conversationTitle) {
+          conversationTitle = "Chat Conversation";
+        }
 
         // Update conversation with generated title
         await prisma.conversation.update({
@@ -147,6 +157,7 @@ export async function POST(request: NextRequest) {
         });
       } catch (error) {
         console.error('Failed to generate title:', error);
+        conversationTitle = conversation.title || "Chat Conversation";
       }
     }
 

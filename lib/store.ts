@@ -6,8 +6,7 @@ import { apiClient } from './api-client';
 const conversationCache = new Map<string, { data: Conversation; timestamp: number }>();
 const messageCache = new Map<string, { data: Message[]; timestamp: number }>();
 const CACHE_DURATION = 10000; // 10 seconds for messages
-const CONVERSATION_CACHE_DURATION = 30000; // 30 seconds for conversations
-
+const CONVERSATION_CACHE_DURATION = 300000; // 5 minutes for conversations
 export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
   currentConversation: null,
@@ -121,15 +120,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ...currentConversation,
         messages: [...(currentConversation.messages || []), savedMessage],
         updatedAt: new Date(),
-      } as Conversation;
-
-      set((state) => ({
+      } as Conversation;      set((state) => ({
         currentConversation: updatedConversation,
         conversations: state.conversations.map((conv) =>
           conv.id === updatedConversation.id ? {
             ...conv,
             updatedAt: updatedConversation.updatedAt,
-            messageCount: (conv.messageCount || 0) + 1,
             lastMessage: savedMessage,
           } as Conversation : conv
         ),
@@ -152,10 +148,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       get().loadMessages(conversation.id);
     }
   },
-
   setIsTyping: (typing) => {
     set({ isTyping: typing });
-  },  createConversation: async (title?: string) => {
+  },
+
+  createConversation: async (title?: string | null) => {
     try {
       const newConversation = await apiClient.createConversation({ title }) as Conversation;
       
@@ -169,8 +166,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Failed to create conversation:', error);
       throw error;
     }
-  },
-  updateConversation: async (id: string, updates: { title?: string }) => {
+  },  updateConversation: async (id: string, updates: { title?: string | null }) => {
     try {
       const updatedConversation = await apiClient.updateConversation(id, updates) as Partial<Conversation>;
       

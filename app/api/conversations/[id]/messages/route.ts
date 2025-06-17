@@ -30,7 +30,7 @@ function errorResponse(message: string, status = 500, details: unknown = null) {
 // GET /api/conversations/[id]/messages
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   // Await params per Next.js
   const { id: rawId } = await context.params;
@@ -83,7 +83,7 @@ export async function GET(
 // POST /api/conversations/[id]/messages
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   // Await params per Next.js
   const { id: rawId } = await context.params;

@@ -8,8 +8,10 @@ import type {
   SearchResults,
   UserStats,
   ApiError,
+  PaginationInfo,
   Theme,
-  AIPersonality 
+  AIPersonality,
+  ChatResponse 
 } from '../types/types';
 
 export class ApiClient {  private baseUrl: string;
@@ -81,10 +83,9 @@ export class ApiClient {  private baseUrl: string;
     
     return responseData as T;
   }
-
   // Chat - Enhanced with real-time support
-  async sendChatMessage(conversationId: string, message: string): Promise<Message> {
-    return this.request<Message>('/chat', {
+  async sendChatMessage(conversationId: string, message: string): Promise<ChatResponse> {
+    return this.request<ChatResponse>('/chat', {
       method: 'POST',
       body: JSON.stringify({ conversationId, message }),
     });
@@ -235,14 +236,46 @@ export class ApiClient {  private baseUrl: string;
   async getProfileStats(): Promise<UserStats> {
     return this.request<UserStats>('/profile/stats');
   }
-
   // Notifications - Enhanced for real-time updates
-  async getNotifications(): Promise<Notification[]> {
-    return this.request<Notification[]>('/notifications', {
+  async getNotifications(params: { 
+    includeRead?: boolean;
+    limit?: number;
+    page?: number;
+    type?: string;
+    priority?: string;
+  } = {}): Promise<{ data: Notification[]; pagination?: PaginationInfo; unreadCount?: number }> {
+    const searchParams = new URLSearchParams();
+    if (params.includeRead !== undefined) searchParams.append('includeRead', params.includeRead.toString());
+    if (params.limit) searchParams.append('limit', params.limit.toString());
+    if (params.page) searchParams.append('page', params.page.toString());
+    if (params.type) searchParams.append('type', params.type);
+    if (params.priority) searchParams.append('priority', params.priority);
+    
+    const queryString = searchParams.toString();
+    const endpoint = queryString ? `/notifications?${queryString}` : '/notifications';
+    
+    // Use fetch directly to get the full response including pagination
+    const url = `${this.baseUrl}/api${endpoint}`;
+    const response = await fetch(url, {
       headers: {
+        'Content-Type': 'application/json',
         'Cache-Control': 'max-age=5', // 5 second cache for notifications
       },
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    const responseData = await response.json();
+    
+    // Return the response structure with data, pagination, unreadCount
+    return {
+      data: responseData.data || [],
+      pagination: responseData.pagination,
+      unreadCount: responseData.unreadCount
+    };
   }
 
   async markNotificationRead(id: string): Promise<void> {
@@ -250,10 +283,29 @@ export class ApiClient {  private baseUrl: string;
       method: 'PUT',
     });
   }
-
   async markAllNotificationsRead(): Promise<void> {
     return this.request<void>('/notifications/mark-all-read', {
       method: 'PUT',
+    });
+  }
+
+  async deleteNotification(id: string): Promise<void> {
+    return this.request<void>(`/notifications/${id}`, {
+      method: 'DELETE',
+    });
+  }
+  async clearAllNotifications(): Promise<{ deletedCount: number }> {
+    return this.request<{ deletedCount: number }>('/notifications', {
+      method: 'DELETE',
+    });
+  }
+  async getNotification(id: string): Promise<Notification> {
+    return this.request<Notification>(`/notifications/${id}`);  }
+
+  // Account Management
+  async deleteAccount(): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>('/profile/delete-account', {
+      method: 'DELETE',
     });
   }
 

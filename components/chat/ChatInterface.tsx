@@ -146,14 +146,22 @@ export function ChatInterface({
       updateConversationLocally(conversationId, {
         messages: [...(currentConversation?.messages || []), tempUserMessage],
         updatedAt: new Date(),
-      });
-
-      // Set typing indicator
-      setIsTyping(true); // Send to backend
-      await apiClient.sendChatMessage(conversationId, userMessage);
+      });      // Set typing indicator
+      setIsTyping(true); 
+      
+      // Send to backend
+      const chatResponse = await apiClient.sendChatMessage(conversationId, userMessage);
 
       // Remove typing indicator
       setIsTyping(false);
+
+      // Update conversation title if it was generated
+      if (chatResponse.title && currentConversation && 
+          (!currentConversation.title || currentConversation.title === "New Conversation")) {
+        updateConversationLocally(conversationId, {
+          title: chatResponse.title,
+        });
+      }
 
       // Force refresh to get the real messages from backend
       await forceRefresh();
@@ -460,24 +468,6 @@ export function ChatInterface({
             </div>
           </div>
         </ScrollArea>
-
-        {/* Real-time Status Indicator */}
-        {isPolling && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute top-4 right-4 z-10"
-          >
-            <Badge variant="secondary" className="text-xs">
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 1, repeat: Infinity }}
-                className="w-2 h-2 rounded-full bg-green-500 mr-2"
-              />
-              Live
-            </Badge>
-          </motion.div>
-        )}
       </div>
       {/* Enhanced Mobile Input */}{" "}
       <motion.div

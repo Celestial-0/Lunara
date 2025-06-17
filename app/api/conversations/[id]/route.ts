@@ -12,7 +12,7 @@ const updateConversationSchema = z.object({
 // GET /api/conversations/[id] - Get a specific conversation with messages
 export async function GET(
   _request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const params = await context.params;
   try {
@@ -79,7 +79,7 @@ export async function GET(
 // PUT /api/conversations/[id] - Update a conversation
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const params = await context.params;
   try {
@@ -164,7 +164,7 @@ export async function PUT(
 // DELETE /api/conversations/[id] - Delete a conversation
 export async function DELETE(
   _request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const params = await context.params;
   try {

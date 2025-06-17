@@ -16,12 +16,10 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
   MessageSquare,
-  Search,
-  Trash2,
+  Search,  Trash2,
   Edit2,
   Download,
   Star,
-  Archive,
   Filter,
   Loader2,
   Check,
@@ -52,20 +50,19 @@ export function ConversationManager({
     refreshConversations,
     createConversation,
   } = useChatStore();
-
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedConversations, setSelectedConversations] = useState<string[]>(
     []
   );
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+  const [editingTitle, setEditingTitle] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResults | null>(
     null
   );
+  const [isLoading, setIsLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   const handleRefresh = useCallback(
     async (showLoading = true) => {
@@ -146,10 +143,11 @@ export function ConversationManager({
     }
     return "New Conversation";
   };
-
   const filteredConversations = searchResults
     ? searchResults.conversations
-        .map((result) => conversations.find((conv) => conv.id === result.id))
+        .map((result: SearchResults["conversations"][0]) =>
+          conversations.find((conv) => conv.id === result.id)
+        )
         .filter(Boolean)
     : conversations.filter((conv) => {
         const title = getConversationTitle(conv);
@@ -173,25 +171,26 @@ export function ConversationManager({
     } else {
       setSelectedConversations(
         filteredConversations
-          .map((conv) => conv?.id)
-          .filter((id): id is string => typeof id === "string")
+          .map((conv: Conversation | undefined) => conv?.id)
+          .filter(
+            (id: string | undefined): id is string => typeof id === "string"
+          )
       );
     }
   };
-
   const handleEditTitle = (conversation: Conversation) => {
     setEditingId(conversation.id);
-    setEditTitle(getConversationTitle(conversation));
+    setEditingTitle(getConversationTitle(conversation));
   };
 
   const handleSaveTitle = async () => {
     if (!editingId) return;
 
     try {
-      const newTitle = editTitle.trim() || "New Conversation";
+      const newTitle = editingTitle.trim() || "New Conversation";
       await updateConversation(editingId, { title: newTitle });
       setEditingId(null);
-      setEditTitle("");
+      setEditingTitle("");
       // Refresh to get updated data
       await handleRefresh(false);
     } catch (error) {
@@ -201,7 +200,7 @@ export function ConversationManager({
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setEditTitle("");
+    setEditingTitle("");
   };
 
   const handleDeleteSelected = async () => {
@@ -267,14 +266,7 @@ export function ConversationManager({
     } catch (error) {
       console.error("Export failed:", error);
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleArchiveSelected = () => {
-    // TODO: Implement archive functionality when backend supports it
-    console.log("Archive functionality not yet implemented");
-    setSelectedConversations([]);
+      setIsLoading(false);    }
   };
 
   const handleConversationClick = async (conversation: Conversation) => {
@@ -300,7 +292,6 @@ export function ConversationManager({
     if (count > 999) return "999+";
     return count.toString();
   };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {" "}
@@ -390,17 +381,7 @@ export function ConversationManager({
                 </Button>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleArchiveSelected}
-                  disabled={isLoading}
-                >
-                  <Archive className="w-4 h-4 mr-1" />
-                  Archive
-                </Button>
-                <Button
+              <div className="flex items-center space-x-2">                <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleExportSelected}
@@ -486,10 +467,12 @@ export function ConversationManager({
                     ) : (
                       filteredConversations
                         .filter(
-                          (conversation): conversation is Conversation =>
+                          (
+                            conversation: Conversation | undefined
+                          ): conversation is Conversation =>
                             conversation !== undefined
                         )
-                        .map((conversation) => (
+                        .map((conversation: Conversation) => (
                           <motion.div
                             key={conversation.id}
                             initial={{ opacity: 0 }}
@@ -530,9 +513,9 @@ export function ConversationManager({
                                   {editingId === conversation.id ? (
                                     <div className="flex items-center space-x-2 flex-1">
                                       <Input
-                                        value={editTitle}
+                                        value={editingTitle}
                                         onChange={(e) =>
-                                          setEditTitle(e.target.value)
+                                          setEditingTitle(e.target.value)
                                         }
                                         className="h-8 text-sm"
                                         onKeyPress={(e) => {
@@ -577,6 +560,7 @@ export function ConversationManager({
                                             variant="outline"
                                             className="text-xs py-0 px-1.5 h-5 font-normal"
                                           >
+                                            {" "}
                                             {formatCount(
                                               conversation.messageCount ||
                                                 conversation.messages?.length ||

@@ -51,16 +51,16 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showConversationManager, setShowConversationManager] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-
-  // Define callbacks for loading data
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);// Define callbacks for loading data
   const loadNotifications = useCallback(async () => {
     try {
-      const data = await apiClient.getNotifications();
-      setNotifications(data);
+      const response = await apiClient.getNotifications({ 
+        includeRead: false, // Only get unread for count optimization
+        limit: 100 // Limit for performance
+      });
+      setNotifications(response?.data || []);
     } catch (error) {
       console.error("Failed to load notifications:", error);
       setNotifications([]);
@@ -124,10 +124,9 @@ export function Sidebar({
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [user?.id, conversations.length, refreshConversations, loadNotifications]);
+    };  }, [user?.id, conversations.length, refreshConversations, loadNotifications]);
 
-  const notificationCount = notifications.filter((n) => !n.read).length;
+  const notificationCount = (notifications || []).filter((n) => !n.read && !n.deleted).length;
 
   const handleNewChat = async () => {
     try {
@@ -164,20 +163,40 @@ export function Sidebar({
     if (isMobile && onClose) {
       onClose();
     }
-  };
-
-  const handleNotificationsClick = async () => {
+  };  const handleNotificationsClick = async () => {
     setShowNotifications(true);
+    
+    // Load all notifications (including read) when opening notification center
+    try {
+      const response = await apiClient.getNotifications({ 
+        includeRead: true,
+        limit: 100 
+      });
+      
+      setNotifications(response?.data || []);
+    } catch (error) {
+      console.error("Failed to load all notifications:", error);
+    }
+    
     if (isMobile && onClose) {
       onClose();
     }
   };
-
   const handleNotificationsUpdate = async () => {
-    await loadNotifications();
+    // When NotificationCenter is open, refresh all notifications (including read)
+    // When closed, only load unread for count optimization
+    try {
+      const response = await apiClient.getNotifications({ 
+        includeRead: true, // Always include read notifications to show complete list
+        limit: 100 
+      });
+      setNotifications(response?.data || []);
+    } catch (error) {
+      console.error("Failed to refresh notifications:", error);
+    }
   };
 
-  // Format conversation count for display
+  // Format count for display (notifications)
   const formatCount = (count: number) => {
     if (count > 999) return "999+";
     return count.toString();
@@ -364,34 +383,13 @@ export function Sidebar({
                             >
                               <div className="flex items-center space-x-3">
                                 <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between">
+                                <div className="flex-1 min-w-0">                                  <div className="flex items-center justify-between">
                                     <p className="text-sm font-medium truncate">
                                       {getConversationTitle(conversation)}
                                     </p>
                                     <span className="text-xs text-muted-foreground">
                                       {getRelativeTime(conversation.updatedAt)}
                                     </span>
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-xs opacity-70">
-                                      {formatCount(
-                                        conversation.messageCount ||
-                                          conversation.messages?.length ||
-                                          0
-                                      )}{" "}
-                                      messages
-                                    </p>
-                                    {/* {(conversation.messageCount || 0) > 0 && (
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs"
-                                    >
-                                      {formatCount(
-                                        conversation.messageCount || 0
-                                      )}
-                                    </Badge>
-                                  )} */}
                                   </div>
                                 </div>
                               </div>
@@ -604,29 +602,13 @@ export function Sidebar({
                       <div className="flex items-center justify-center space-x-3">
                         <MessageSquare className="h-4 w-4 flex-shrink-0" />
                         {!isCollapsed && (
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">                            <div className="flex items-center justify-between">
                               <p className="text-sm font-medium truncate">
                                 {getConversationTitle(conversation)}
                               </p>
                               <span className="text-xs text-muted-foreground">
                                 {getRelativeTime(conversation.updatedAt)}
                               </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs opacity-70">
-                                {formatCount(
-                                  conversation.messageCount ||
-                                    conversation.messages?.length ||
-                                    0
-                                )}{" "}
-                                messages
-                              </p>
-                              {/* {(conversation.messageCount || 0) > 0 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {formatCount(conversation.messageCount || 0)}
-                                </Badge>
-                              )} */}
                             </div>
                           </div>
                         )}

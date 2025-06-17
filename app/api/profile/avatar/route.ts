@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { AuthUser } from '@/types/types';
 
 // POST /api/profile/avatar - Upload avatar (placeholder for file upload)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    const user = session?.user as AuthUser;
 
-    if (!session?.user?.id) {
+    if (!user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -47,17 +49,17 @@ export async function POST(request: NextRequest) {
 
     // Update user profile with new avatar URL
     await prisma.userProfile.upsert({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       update: { avatar: avatarUrl },
       create: {
-        userId: session.user.id,
+        userId: user.id,
         avatar: avatarUrl,
       },
     });
 
     // Also update user image for consistency
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: user.id },
       data: { image: avatarUrl },
     });
 
@@ -75,11 +77,12 @@ export async function POST(request: NextRequest) {
 }
 
 // DELETE /api/profile/avatar - Remove avatar
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
   try {
     const session = await getServerSession(authOptions);
+    const user = session?.user as AuthUser;
 
-    if (!session?.user?.id) {
+    if (!user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -88,17 +91,17 @@ export async function DELETE(request: NextRequest) {
 
     // Remove avatar from profile
     await prisma.userProfile.upsert({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       update: { avatar: null },
       create: {
-        userId: session.user.id,
+        userId: user.id,
         avatar: null,
       },
     });
 
     // Also remove from user image
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: user.id },
       data: { image: null },
     });
 

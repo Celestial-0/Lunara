@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 // PUT /api/notifications/mark-all-read - Mark all notifications as read
-export async function PUT(_request: NextRequest) {
+export async function PUT() {
   try {
     const session = await getServerSession(authOptions);
     const email = session?.user?.email;
@@ -30,25 +30,32 @@ export async function PUT(_request: NextRequest) {
 
     const userId = user.id;
 
-    // Update all unread notifications for the user
+    // Update all unread, non-deleted notifications for the user
     const { count } = await prisma.notification.updateMany({
       where: {
         userId,
-        read: false
+        read: false,
+        deleted: false
       },
       data: {
-        read: true
+        read: true,
+        readAt: new Date()
       }
     });
 
     return NextResponse.json({
       success: true,
-      message: `Marked ${count} notifications as read`
+      message: `Marked ${count} notifications as read`,
+      count
     });
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
     return NextResponse.json(
-      { error: 'Failed to mark all notifications as read' },
+      { 
+        success: false,
+        error: 'Failed to mark all notifications as read',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

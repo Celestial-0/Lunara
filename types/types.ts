@@ -112,10 +112,27 @@ export interface Notification {
   description: string;
   read: boolean;
   priority: 'low' | 'medium' | 'high';
+  deleted: boolean;
+  deletedAt?: Date | null;
+  readAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
   
   user?: User;
+}
+
+export interface PaginationInfo {
+  page: number;
+  limit: number;
+  totalCount: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface NotificationMetadata {
+  lastUpdated: string;
+  filters: Record<string, unknown>;
 }
 
 export interface SearchResults {
@@ -222,3 +239,11 @@ export interface UserStats {
 // UI Type refinements
 export type Theme = 'light' | 'dark' | 'system';
 export type AIPersonality = 'friendly' | 'professional' | 'creative' | 'analytical' | 'empathetic';
+
+// Chat response type for AI generated responses
+export interface ChatResponse {
+  content: string;
+  title?: string;
+  messageId: string;
+  error?: string;
+}

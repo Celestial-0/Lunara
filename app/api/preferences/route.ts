@@ -4,6 +4,14 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
+// Extend the session user type to include id
+interface SessionUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+}
+
 // Validation schema for user preferences
 const preferencesSchema = z.object({
   aiPersonality: z.enum(['friendly', 'professional', 'creative', 'analytical', 'empathetic']).optional(),
@@ -14,19 +22,27 @@ const preferencesSchema = z.object({
 });
 
 // GET /api/preferences - Get user preferences
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    const userId = (session.user as SessionUser).id;
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'User ID not found' },
+        { status: 401 }
+      );
+    }
+
     const preferences = await prisma.userPreferences.findUnique({
-      where: { userId: session.user.id },
+      where: { userId },
     });
 
     // Return default preferences if none exist
@@ -62,9 +78,17 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const sessionUser = session.user as SessionUser;
+    if (!sessionUser.id) {
+      return NextResponse.json(
+        { error: 'User ID not found' },
         { status: 401 }
       );
     }
@@ -80,10 +104,10 @@ export async function PUT(request: NextRequest) {
     }
 
     const preferences = await prisma.userPreferences.upsert({
-      where: { userId: session.user.id },
+      where: { userId: sessionUser.id },
       update: validationResult.data,
       create: {
-        userId: session.user.id,
+        userId: sessionUser.id,
         ...validationResult.data,
       },
     });
@@ -108,19 +132,27 @@ export async function PUT(request: NextRequest) {
 }
 
 // DELETE /api/preferences - Reset preferences to defaults
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    const sessionUser = session.user as SessionUser;
+    if (!sessionUser.id) {
+      return NextResponse.json(
+        { error: 'User ID not found' },
+        { status: 401 }
+      );
+    }
+
     await prisma.userPreferences.deleteMany({
-      where: { userId: session.user.id },
+      where: { userId: sessionUser.id },
     });
 
     return NextResponse.json({

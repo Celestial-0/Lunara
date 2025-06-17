@@ -13,9 +13,10 @@ const updateMessageSchema = z.object({
 // GET /api/messages/[id] - Get a specific message
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
@@ -38,11 +39,9 @@ export async function GET(
       );
     }
 
-    const userId = user.id;
-
-    const message = await prisma.message.findFirst({
+    const userId = user.id;    const message = await prisma.message.findFirst({
       where: {
-        id: params.id,
+        id,
         conversation: {
           userId,
         },
@@ -79,9 +78,10 @@ export async function GET(
 // PUT /api/messages/[id] - Update a message
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
@@ -114,12 +114,10 @@ export async function PUT(
         { error: 'Invalid input', details: validationResult.error.errors },
         { status: 400 }
       );
-    }
-
-    // Check if message exists and belongs to user
+    }    // Check if message exists and belongs to user
     const existingMessage = await prisma.message.findFirst({
       where: {
-        id: params.id,
+        id,
         conversation: {
           userId,
         },
@@ -134,7 +132,7 @@ export async function PUT(
     }
 
     const updatedMessage = await prisma.message.update({
-      where: { id: params.id },
+      where: { id },
       data: validationResult.data,
     });
 
@@ -151,9 +149,10 @@ export async function PUT(
 // DELETE /api/messages/[id] - Delete a message
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
@@ -176,12 +175,10 @@ export async function DELETE(
       );
     }
 
-    const userId = user.id;
-
-    // Check if message exists and belongs to user
+    const userId = user.id;    // Check if message exists and belongs to user
     const existingMessage = await prisma.message.findFirst({
       where: {
-        id: params.id,
+        id,
         conversation: {
           userId,
         },
@@ -196,7 +193,7 @@ export async function DELETE(
     }
 
     await prisma.message.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({

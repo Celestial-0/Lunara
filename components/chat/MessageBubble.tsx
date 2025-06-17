@@ -175,7 +175,7 @@ function CodeBlockWrapper({ children }: { children: React.ReactNode }) {
       {/* Code content */}
       <Highlight code={content.trim()} language={language} theme={prismTheme}>
         {({ tokens, getLineProps, getTokenProps }) => (
-          <pre className="p-4 overflow-auto text-sm leading-relaxed">
+          <pre className="p-4 overflow-auto text-sm leading-relaxed text-foreground">
             {tokens.map((line, i) => {
               const lineProps = getLineProps({ line });
               return (

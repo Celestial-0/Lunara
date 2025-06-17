@@ -6,9 +6,10 @@ import { prisma } from '@/lib/prisma';
 // PUT /api/notifications/:id/read - Mark a notification as read
 export async function PUT(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     const email = session?.user?.email;
     
@@ -33,11 +34,12 @@ export async function PUT(
 
     const userId = user.id;
 
-    // Check if notification exists and belongs to the user
+    // Check if notification exists, belongs to the user, and isn't deleted
     const notification = await prisma.notification.findFirst({
       where: {
-        id: params.id,
-        userId
+        id,
+        userId,
+        deleted: false
       }
     });
 
@@ -48,17 +50,37 @@ export async function PUT(
       );
     }
 
-    // Update notification to mark as read
+    // Only update if not already read (optimization)
+    if (notification.read) {
+      return NextResponse.json({
+        success: true,
+        data: notification,
+        message: 'Notification already marked as read'
+      });
+    }
+
+    // Update notification to mark as read with timestamp
     const updatedNotification = await prisma.notification.update({
-      where: { id: params.id },
-      data: { read: true }
+      where: { id },
+      data: { 
+        read: true,
+        readAt: new Date()
+      }
     });
 
-    return NextResponse.json(updatedNotification);
+    return NextResponse.json({
+      success: true,
+      data: updatedNotification,
+      message: 'Notification marked as read'
+    });
   } catch (error) {
     console.error('Error marking notification as read:', error);
     return NextResponse.json(
-      { error: 'Failed to mark notification as read' },
+      { 
+        success: false,
+        error: 'Failed to mark notification as read',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

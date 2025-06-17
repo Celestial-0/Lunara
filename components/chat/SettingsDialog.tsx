@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
@@ -37,6 +38,7 @@ import {
 import { useTheme } from '@/components/core/ThemeProvider';
 import { apiClient } from '@/lib/api-client';
 import { AIPersonality } from '@/types/types';
+import { signOut } from 'next-auth/react';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -44,9 +46,11 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
-  const { theme, setTheme } = useTheme();
-  const [isLoading, setIsLoading] = useState(false);
+  const { theme, setTheme } = useTheme();  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
     // Settings state
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [voiceSpeed, setVoiceSpeed] = useState([1.0]);
@@ -144,10 +148,32 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       console.error('Export failed:', error);
     }
   };
-
   const handleDeleteAccount = () => {
-    // TODO: Implement account deletion with confirmation
-    console.log('Delete account requested...');
+    setShowDeleteConfirmation(true);
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (deleteConfirmationText !== 'DELETE') {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await apiClient.deleteAccount();
+      
+      // Sign out the user and redirect to home
+      await signOut({ 
+        callbackUrl: '/',
+        redirect: true 
+      });
+    } catch (error) {
+      console.error('Failed to delete account:', error);
+      // Reset confirmation state on error
+      setShowDeleteConfirmation(false);
+      setDeleteConfirmationText('');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const testVoice = () => {
@@ -300,11 +326,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     <SelectItem value="empathetic">Empathetic & Supportive</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="p-4 rounded-xl" style={{
-                background: `oklch(from var(--muted) l c h / 0.5)`
-              }}>
+              </div>              <div className="p-4 rounded-xl bg-muted/50">
                 <p className="text-sm text-muted-foreground">
                   {aiPersonality === 'friendly' && "I'll be warm, approachable, and use casual language in our conversations."}
                   {aiPersonality === 'professional' && "I'll maintain a formal, business-like tone and focus on efficiency."}
@@ -394,8 +416,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               <CardDescription>
                 Manage your data and privacy settings
               </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            </CardHeader>            <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   variant="outline"
@@ -416,9 +437,57 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 </Button>
               </div>
 
-              <div className="p-4 rounded-xl border border-destructive/20" style={{
-                background: `oklch(62% 0.204 29 / 0.05)`
-              }}>
+              {showDeleteConfirmation && (
+                <div className="space-y-4 p-4 border border-destructive/30 rounded-xl bg-destructive/5">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-destructive">Confirm Account Deletion</h4>
+                    <p className="text-sm text-muted-foreground">
+                      This action cannot be undone. This will permanently delete your account and all associated data.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Type <strong>DELETE</strong> below to confirm:
+                    </p>
+                  </div>
+                  
+                  <Input
+                    value={deleteConfirmationText}
+                    onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                    placeholder="Type DELETE here"
+                    className="font-mono"
+                  />
+                  
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setShowDeleteConfirmation(false);
+                        setDeleteConfirmationText('');
+                      }}
+                      disabled={isDeleting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={confirmDeleteAccount}
+                      disabled={deleteConfirmationText !== 'DELETE' || isDeleting}
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        'Delete Account Permanently'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-4 rounded-xl border border-destructive/20 bg-destructive/5">
                 <p className="text-sm text-muted-foreground">
                   <strong>Note:</strong> Deleting your account will permanently remove all your conversations and data. This action cannot be undone.
                 </p>
