@@ -222,7 +222,7 @@ export function useVoiceChat() {
     };
 
     // Note: In production, the API key should be handled securely on the backend
-    const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
+    const API_KEY = process.env.GEMINI_API_KEY || '';
     
     if (!API_KEY) {
       throw new Error('Gemini API key not configured');

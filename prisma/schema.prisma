@@ -118,7 +118,9 @@ model UserPreferences {
   voiceEnabled  Boolean @default(true)
   voiceSpeed    Float   @default(1.0)
   voicePitch    Float   @default(1.0)
-  theme         String  @default("light")
+  theme         String  @default("system")
+  messageCount  Int     @default(0) // Track free messages used
+  geminiApiKey  String? // User's personal Gemini API key
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

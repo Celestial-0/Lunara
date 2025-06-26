@@ -1,14 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { signIn, getSession } from 'next-auth/react';
+import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Chrome, Mail, Loader2, Eye, EyeOff, Sparkles, ArrowLeft } from 'lucide-react';
+import {  Mail, Loader2, Eye, EyeOff, Sparkles, ArrowLeft } from 'lucide-react';
+import { FaGoogle } from "react-icons/fa";
+//FcGoogle is not used, using FaGoogle instead
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ThemeToggle } from '@/components/core/ThemeToggle';
 
@@ -197,7 +199,7 @@ export function SignInForm() {
                 {isGoogleLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <Chrome className="mr-2 h-4 w-4" />
+                  <FaGoogle className="mr-2 h-4 w-4" />
                 )}
                 Continue with Google
               </Button>

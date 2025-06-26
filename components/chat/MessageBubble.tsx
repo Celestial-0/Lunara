@@ -245,7 +245,7 @@ export function MessageBubble({
             src={
               isUser
                 ? userAvatar
-                : "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop"
+                : "https://v8sn4u5d65xaovfn.public.blob.vercel-storage.com/Lunara%20AI%20Icon.PNG"
             }
           />
           <AvatarFallback className="bg-muted">

@@ -25,6 +25,7 @@ import { TypingIndicator } from "./TypingIndicator";
 import { AudioControls } from "./AudioControls";
 import { VoiceChat } from "./VoiceChat";
 import { SettingsDialog } from "./SettingsDialog";
+import { ApiKeyDialog } from "./ApiKeyDialog";
 import { apiClient } from "@/lib/api-client";
 import { useSession } from "next-auth/react";
 import { useRealTimeMessages } from "@/lib/hooks/useRealTimeMessages";
@@ -47,6 +48,8 @@ export function ChatInterface({
   const [isSending, setIsSending] = useState(false);
   const [showVoiceChat, setShowVoiceChat] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const [apiKeyDialogData, setApiKeyDialogData] = useState({ messageCount: 0, limit: 15 });
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -169,7 +172,28 @@ export function ChatInterface({
       console.error("Failed to send message:", error);
       setIsTyping(false);
 
-      // Add error message locally
+      // Check if it's the free limit reached error
+      interface ApiError {
+        error: string;
+        message: string;
+        messageCount?: number;
+        limit?: number;
+      }
+
+      // Handle API client error responses
+      if (error && typeof error === 'object' && 'error' in error) {
+        const apiError = error as ApiError;
+        if (apiError.error === 'FREE_LIMIT_REACHED') {
+          setApiKeyDialogData({
+            messageCount: apiError.messageCount || 15,
+            limit: apiError.limit || 15
+          });
+          setShowApiKeyDialog(true);
+          return;
+        }
+      }
+
+      // Add error message locally for other errors
       if (currentConversation?.id) {
         const errorMessage = {
           id: `error-${Date.now()}`,
@@ -290,7 +314,7 @@ export function ChatInterface({
                 borderColor: `oklch(from var(--primary) l c h / 0.2)`,
               }}
             >
-              <AvatarImage src="https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" />
+              <AvatarImage src="https://v8sn4u5d65xaovfn.public.blob.vercel-storage.com/Lunara%20AI%20Icon.PNG" />
               <AvatarFallback
                 style={{
                   background: `oklch(from var(--primary) l c h / 0.1)`,
@@ -563,6 +587,18 @@ export function ChatInterface({
       />
       {/* Settings Dialog */}
       <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
+      
+      {/* API Key Dialog */}
+      <ApiKeyDialog
+        isOpen={showApiKeyDialog}
+        onClose={() => setShowApiKeyDialog(false)}
+        onSuccess={() => {
+          setShowApiKeyDialog(false);
+          // Optionally refresh the UI or show a success message
+        }}
+        messageCount={apiKeyDialogData.messageCount}
+        freeLimit={apiKeyDialogData.limit}
+      />
     </div>
   );
 }

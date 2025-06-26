@@ -7,7 +7,7 @@ import { ChatInterface } from '@/components/chat/ChatInterface';
 import { Sidebar } from '@/components/chat/Sidebar';
 
 export default function ChatPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);

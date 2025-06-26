@@ -91,7 +91,7 @@ A modern, real-time AI chat application built with Next.js, featuring voice chat
    DATABASE_URL="postgresql://username:password@localhost:5432/Lunara"
    NEXTAUTH_SECRET="your-nextauth-secret"
    GEMINI_API_KEY="your-gemini-api-key"
-   NEXT_PUBLIC_GEMINI_API_KEY="your-gemini-api-key"
+   GEMINI_API_KEY="your-gemini-api-key"
    ```
 
 4. **Set up the database**
@@ -200,7 +200,7 @@ DATABASE_URL="your-production-database-url"
 NEXTAUTH_URL="https://your-domain.com"
 NEXTAUTH_SECRET="your-production-secret"
 GEMINI_API_KEY="your-gemini-api-key"
-NEXT_PUBLIC_GEMINI_API_KEY="your-gemini-api-key"
+GEMINI_API_KEY="your-gemini-api-key"
 ```
 
 ## Contributing

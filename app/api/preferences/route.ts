@@ -53,6 +53,8 @@ export async function GET() {
         voiceSpeed: 1.0,
         voicePitch: 1.0,
         theme: 'system',
+        messageCount: 0,
+        hasApiKey: false,
       };
       return NextResponse.json(defaultPreferences);
     }
@@ -63,6 +65,8 @@ export async function GET() {
       voiceSpeed: preferences.voiceSpeed,
       voicePitch: preferences.voicePitch,
       theme: preferences.theme,
+      messageCount: preferences.messageCount,
+      hasApiKey: Boolean(preferences.geminiApiKey),
     });
   } catch (error) {
     console.error('Preferences fetch error:', error);

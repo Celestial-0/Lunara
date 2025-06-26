@@ -81,6 +81,8 @@ export interface UserPreferences {
   voiceSpeed: number;
   voicePitch: number;
   theme: Theme;
+  messageCount: number;
+  geminiApiKey?: string | null;
   
   user: User;
 }
@@ -247,3 +249,66 @@ export interface ChatResponse {
   messageId: string;
   error?: string;
 }
+
+// Export-related types
+export interface ExportUserProfile {
+  id: string;
+  userId: string;
+  bio?: string | null;
+  phone?: string | null;
+  location?: string | null;
+  website?: string | null;
+  company?: string | null;
+  jobTitle?: string | null;
+  avatar?: string | null;
+  showEmail: boolean;
+  showPhone: boolean;
+  showLocation: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ExportUserPreferences {
+  id: string;
+  userId: string;
+  aiPersonality: string;
+  voiceEnabled: boolean;
+  voiceSpeed: number;
+  voicePitch: number;
+  theme: string;
+  messageCount: number;
+  geminiApiKey?: string | null;
+}
+
+export interface ExportMessage {
+  id: string;
+  content: string;
+  role: string;
+  createdAt: Date;
+}
+
+export interface ExportConversation {
+  id: string;
+  title?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  messages: ExportMessage[];
+}
+
+export interface ExportUserData {
+  name?: string | null;
+  email: string;
+  createdAt: Date;
+  profile: ExportUserProfile | null;
+  preferences: ExportUserPreferences | null;
+}
+
+export interface ExportData {
+  exportedAt: string;
+  userId: string;
+  profile?: ExportUserData;
+  conversations?: ExportConversation[];
+}
+
+export type ExportFormat = 'json' | 'csv';
+export type ExportType = 'all' | 'conversations' | 'profile';

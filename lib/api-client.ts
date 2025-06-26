@@ -57,7 +57,16 @@ export class ApiClient {  private baseUrl: string;
     const response = await fetch(url, config);
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' })) as ApiError;
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' })) as ApiError & {
+        messageCount?: number;
+        limit?: number;
+      };
+      
+      // For the free limit reached error, throw the full error data
+      if (errorData.error === 'FREE_LIMIT_REACHED') {
+        throw errorData;
+      }
+      
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 

@@ -48,6 +48,26 @@ CREATE TABLE "VerificationToken" (
 );
 
 -- CreateTable
+CREATE TABLE "UserProfile" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "bio" TEXT,
+    "phone" TEXT,
+    "location" TEXT,
+    "website" TEXT,
+    "company" TEXT,
+    "jobTitle" TEXT,
+    "avatar" TEXT,
+    "showEmail" BOOLEAN NOT NULL DEFAULT true,
+    "showPhone" BOOLEAN NOT NULL DEFAULT false,
+    "showLocation" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "UserProfile_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Conversation" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -78,9 +98,29 @@ CREATE TABLE "UserPreferences" (
     "voiceEnabled" BOOLEAN NOT NULL DEFAULT true,
     "voiceSpeed" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
     "voicePitch" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
-    "theme" TEXT NOT NULL DEFAULT 'light',
+    "theme" TEXT NOT NULL DEFAULT 'system',
+    "messageCount" INTEGER NOT NULL DEFAULT 0,
+    "geminiApiKey" TEXT,
 
     CONSTRAINT "UserPreferences_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Notification" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "read" BOOLEAN NOT NULL DEFAULT false,
+    "priority" TEXT NOT NULL,
+    "deleted" BOOLEAN NOT NULL DEFAULT false,
+    "deletedAt" TIMESTAMP(3),
+    "readAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Notification_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -99,6 +139,12 @@ CREATE UNIQUE INDEX "VerificationToken_token_key" ON "VerificationToken"("token"
 CREATE UNIQUE INDEX "VerificationToken_identifier_token_key" ON "VerificationToken"("identifier", "token");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UserProfile_userId_key" ON "UserProfile"("userId");
+
+-- CreateIndex
+CREATE INDEX "UserProfile_userId_idx" ON "UserProfile"("userId");
+
+-- CreateIndex
 CREATE INDEX "Conversation_userId_idx" ON "Conversation"("userId");
 
 -- CreateIndex
@@ -107,11 +153,26 @@ CREATE INDEX "Message_conversationId_idx" ON "Message"("conversationId");
 -- CreateIndex
 CREATE UNIQUE INDEX "UserPreferences_userId_key" ON "UserPreferences"("userId");
 
+-- CreateIndex
+CREATE INDEX "Notification_userId_idx" ON "Notification"("userId");
+
+-- CreateIndex
+CREATE INDEX "Notification_userId_deleted_idx" ON "Notification"("userId", "deleted");
+
+-- CreateIndex
+CREATE INDEX "Notification_userId_read_deleted_idx" ON "Notification"("userId", "read", "deleted");
+
+-- CreateIndex
+CREATE INDEX "Notification_createdAt_idx" ON "Notification"("createdAt");
+
 -- AddForeignKey
 ALTER TABLE "Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserProfile" ADD CONSTRAINT "UserProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -121,3 +182,6 @@ ALTER TABLE "Message" ADD CONSTRAINT "Message_conversationId_fkey" FOREIGN KEY (
 
 -- AddForeignKey
 ALTER TABLE "UserPreferences" ADD CONSTRAINT "UserPreferences_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

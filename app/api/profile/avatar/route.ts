@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     // TODO: Implement actual file upload to cloud storage (AWS S3, Cloudinary, etc.)
     // For now, we'll simulate the upload and return a placeholder URL
-    const avatarUrl = `https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`;
+    const avatarUrl = `https://v8sn4u5d65xaovfn.public.blob.vercel-storage.com/Lunara%20AI%20Icon.PNG`;
 
     // Update user profile with new avatar URL
     await prisma.userProfile.upsert({

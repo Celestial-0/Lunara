@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import type { ExportData } from '@/types/types';
 
 // Validation schema for export parameters
 const exportParamsSchema = z.object({
@@ -56,30 +57,7 @@ export async function GET(request: NextRequest) {
     
     const { format, type } = validationResult.data;
     
-    // Define proper types for export data
-    interface ExportData {
-      exportedAt: string;
-      userId: string;
-      profile?: {
-        name?: string | null;
-        email: string;
-        createdAt: Date;
-        profile: any; // Using any here to match existing code structure
-        preferences: any; // Using any here to match existing code structure
-      };
-      conversations?: Array<{
-        id: string;
-        title?: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        messages: Array<{
-          id: string;
-          content: string;
-          role: string;
-          createdAt: Date;
-        }>;
-      }>;
-    }    const exportData: ExportData = {
+    const exportData: ExportData = {
       exportedAt: new Date().toISOString(),
       userId,
     };

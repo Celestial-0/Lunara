@@ -32,7 +32,7 @@ const profileUpdateSchema = z.object({
 });
 
 // GET /api/profile - Get user profile
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
@@ -243,7 +243,7 @@ export async function PUT(request: NextRequest) {
 }
 
 // DELETE /api/profile - Delete user profile (soft delete)
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
   try {
     const session = await getServerSession(authOptions);
 

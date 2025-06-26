@@ -12,7 +12,7 @@ const chatMessageSchema = z.object({
   message: z.string().min(1, "Message cannot be empty").max(10000, "Message is too long")
 });
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const FREE_MESSAGE_LIMIT = 15;
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,10 +74,42 @@ export async function POST(request: NextRequest) {
         { error: 'Conversation not found' },
         { status: 404 }
       );
-    }    // Get user preferences for personality
-    const preferences = await prisma.userPreferences.findUnique({
+    }    // Get user preferences for personality and API key management
+    let preferences = await prisma.userPreferences.findUnique({
       where: { userId },
     });
+
+    // Initialize preferences if they don't exist
+    if (!preferences) {
+      preferences = await prisma.userPreferences.create({
+        data: {
+          userId,
+          aiPersonality: 'friendly',
+          voiceEnabled: true,
+          voiceSpeed: 1.0,
+          voicePitch: 1.0,
+          theme: 'system',
+          messageCount: 0,
+        },
+      });
+    }
+
+    // Check message limit and API key availability
+    const hasReachedLimit = preferences.messageCount >= FREE_MESSAGE_LIMIT;
+    const hasPersonalApiKey = preferences.geminiApiKey && preferences.geminiApiKey.trim() !== '';
+    
+    if (hasReachedLimit && !hasPersonalApiKey) {
+      return NextResponse.json({
+        error: 'FREE_LIMIT_REACHED',
+        message: 'You have reached the limit of 15 free messages. Please provide your own Gemini API key to continue.',
+        messageCount: preferences.messageCount,
+        limit: FREE_MESSAGE_LIMIT
+      }, { status: 402 }); // Payment Required
+    }
+
+    // Determine which API key to use
+    const apiKeyToUse = hasPersonalApiKey ? preferences.geminiApiKey! : process.env.GEMINI_API_KEY!;
+    const genAI = new GoogleGenerativeAI(apiKeyToUse);
 
     // Ensure the personality is valid using type guard
     const validPersonalities: AIPersonality[] = ['friendly', 'professional', 'creative', 'analytical', 'empathetic'];
@@ -166,6 +198,14 @@ export async function POST(request: NextRequest) {
       where: { id: conversationId },
       data: { updatedAt: new Date() },
     });
+
+    // Increment message count for users using free tier (not their own API key)
+    if (!hasPersonalApiKey) {
+      await prisma.userPreferences.update({
+        where: { userId },
+        data: { messageCount: preferences.messageCount + 1 },
+      });
+    }
 
     return NextResponse.json({
       content: aiResponse,
