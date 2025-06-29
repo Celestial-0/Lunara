@@ -247,7 +247,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   if (isLoading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-[90%] sm:max-w-3xl">
           <div className="flex items-center justify-center py-12">
             <motion.div
               animate={{ rotate: 360 }}
@@ -263,7 +263,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden p-0">
+      <DialogContent className="max-w-[90%] sm:max-w-4xl max-h-[85vh] overflow-hidden p-0">
         <DialogHeader className="px-6 pt-6 pb-0">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Settings className="h-5 w-5" />
@@ -278,23 +278,23 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           <TabsList className="mx-6 grid w-fit grid-cols-5 mb-4">
             <TabsTrigger value="voice" className="flex items-center gap-2">
               <Volume2 className="h-4 w-4" />
-              Voice
+              <span className="hidden sm:inline">Voice</span>
             </TabsTrigger>
             <TabsTrigger value="ai" className="flex items-center gap-2">
               <Bot className="h-4 w-4" />
-              AI
+              <span className="hidden sm:inline">AI</span>
             </TabsTrigger>
             <TabsTrigger value="api" className="flex items-center gap-2">
               <Zap className="h-4 w-4" />
-              API
+              <span className="hidden sm:inline">API</span>
             </TabsTrigger>
             <TabsTrigger value="appearance" className="flex items-center gap-2">
               <Palette className="h-4 w-4" />
-              Theme
+              <span className="hidden sm:inline">Theme</span>
             </TabsTrigger>
             <TabsTrigger value="privacy" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              Privacy
+              <span className="hidden sm:inline">Privacy</span>
             </TabsTrigger>
           </TabsList>
 

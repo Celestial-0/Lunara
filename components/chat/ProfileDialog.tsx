@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Dialog,
@@ -10,6 +10,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +34,8 @@ import {
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   User,
   Mail,
@@ -39,27 +52,16 @@ import {
   Check,
   AlertCircle,
   Loader2,
+  BarChart3,
+  Clock,
+  MessageCircle,
+  Key,
+  EyeOff,
+  Eye,
+  UserX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SessionUser, UserStats } from "@/types/types";
-
-// Reusable Tailwind class combinations
-const cardStyles = {
-  statCard: "text-center p-3 sm:p-4 rounded-xl border bg-primary/5 transition hover:bg-primary/10 hover:shadow-sm",
-  settingRow: "flex items-center justify-between p-3 rounded-xl border hover:bg-accent/50 transition",
-  flexCenter: "flex items-center justify-center",
-  flexCenterBetween: "flex items-center justify-between",
-  flexRow: "flex flex-row items-center gap-x-2",
-  flexCol: "flex flex-col gap-y-2", 
-  iconText: "flex items-center gap-x-2",
-  formField: "space-y-2",
-  responsiveText: "text-sm sm:text-base",
-  buttonIcon: "size-4",
-  roundedInput: "rounded-xl focus:ring-primary/20 focus:ring-2",
-  animatedCard: "transition-all duration-200 ease-in-out",
-  statusIndicator: "size-2 rounded-full",
-  contentSection: "space-y-4",
-};
 
 interface ProfileDialogProps {
   open: boolean;
@@ -108,11 +110,44 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   // Validation and feedback
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Password change states
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false);
+
+  // Password status states
+  const [passwordStatus, setPasswordStatus] = useState<{
+    canChangePassword: boolean;
+    hasPassword: boolean;
+    isGoogleUser: boolean;
+    requiresCurrentPassword: boolean;
+    message: string;
+  }>({
+    canChangePassword: false,
+    hasPassword: false,
+    isGoogleUser: false,
+    requiresCurrentPassword: true,
+    message: 'change_password'
+  });
+
+  // Delete account states
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  // Password visibility states
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   // Load profile data when dialog opens
   useEffect(() => {
     if (open && sessionUser?.id) {
       loadProfileData();
       loadUserStats();
+      loadPasswordStatus();
     }
   }, [open, sessionUser?.id]);
 
@@ -127,33 +162,34 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
     required: boolean = false
   ) => {
     return (
-      <div className={cardStyles.formField}>
-        <label className="text-sm font-medium flex items-center gap-x-1">
+      <div className="space-y-2">
+        <Label className="text-sm font-medium flex items-center gap-1">
           {label} {required && <span className="text-destructive">*</span>}
-        </label>
+        </Label>
         {isEditing ? (
           <div className="space-y-1">
             <Input
               value={value}
               onChange={(e) => setValue(e.target.value)}
               className={cn(
-                cardStyles.roundedInput,
                 "transition-colors duration-200",
-                errorKey && errors[errorKey] ? "border-destructive ring-destructive/20" : "focus:border-primary/50"
+                errorKey && errors[errorKey] ? "border-destructive focus-visible:ring-destructive/20" : ""
               )}
               type={type}
               placeholder={placeholder}
               disabled={isSaving}
             />
             {errorKey && errors[errorKey] && (
-              <p className="text-xs text-destructive flex items-center gap-x-1">
-                <AlertCircle className="size-3" />
+              <div className="flex items-center gap-1 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3" />
                 <span>{errors[errorKey]}</span>
-              </p>
+              </div>
             )}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground py-1.5 px-2 rounded bg-muted/40">{value || "Not set"}</p>
+          <div className="text-sm text-muted-foreground py-2 px-3 rounded-md bg-muted/50">
+            {value || "Not set"}
+          </div>
         )}
       </div>
     );
@@ -213,6 +249,18 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
       console.error("Failed to load stats:", error);
     } finally {
       setIsLoadingStats(false);
+    }
+  };
+
+  const loadPasswordStatus = async () => {
+    try {
+      const response = await fetch("/api/profile/password-status");
+      if (response.ok) {
+        const data = await response.json();
+        setPasswordStatus(data);
+      }
+    } catch (error) {
+      console.error("Failed to load password status:", error);
     }
   };
 
@@ -376,69 +424,227 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
       .toUpperCase()
       .slice(0, 2);
   };
+
+  // Password change handlers
+  const validatePasswordForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    // Only require current password if user already has one
+    if (passwordStatus.requiresCurrentPassword && !currentPassword.trim()) {
+      newErrors.currentPassword = "Current password is required";
+    }
+
+    if (!newPassword.trim()) {
+      newErrors.newPassword = "New password is required";
+    } else if (newPassword.length < 8) {
+      newErrors.newPassword = "Password must be at least 8 characters long";
+    }
+
+    if (!confirmPassword.trim()) {
+      newErrors.confirmPassword = "Please confirm your new password";
+    } else if (newPassword !== confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+
+    if (passwordStatus.requiresCurrentPassword && currentPassword === newPassword) {
+      newErrors.newPassword = "New password must be different from current password";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChangePassword = async () => {
+    if (!validatePasswordForm()) return;
+
+    setIsChangingPassword(true);
+    setErrors({});
+
+    try {
+      const requestBody: { newPassword: string; currentPassword?: string } = {
+        newPassword,
+      };
+
+      // Only include current password if required
+      if (passwordStatus.requiresCurrentPassword) {
+        requestBody.currentPassword = currentPassword;
+      }
+
+      const response = await fetch("/api/profile/change-password", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrors({ password: data.error || "Failed to change password" });
+        return;
+      }
+
+      // Success
+      setPasswordChangeSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowChangePassword(false);
+
+      // Reload password status to update UI state
+      loadPasswordStatus();
+
+      // Hide success message after 3 seconds
+      setTimeout(() => setPasswordChangeSuccess(false), 3000);
+    } catch (error) {
+      console.error("Failed to change password:", error);
+      setErrors({ password: "Failed to change password. Please try again." });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handleCancelPasswordChange = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowChangePassword(false);
+    setErrors({});
+  };
+
+  // Delete account handlers
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmEmail !== sessionUser?.email) {
+      setErrors({ delete: "Email confirmation does not match your account email" });
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    setErrors({});
+
+    try {
+      const response = await fetch("/api/profile/delete-account", {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrors({ delete: data.error || "Failed to delete account" });
+        return;
+      }
+
+      // Success - sign out and redirect
+      await signOut({ callbackUrl: "/" });
+    } catch (error) {
+      console.error("Failed to delete account:", error);
+      setErrors({ delete: "Failed to delete account. Please try again." });
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
+  const handleCancelDeleteAccount = () => {
+    setDeleteConfirmEmail("");
+    setErrors({});
+  };
+
+  // Check if user can change password (now all users can)
+  const canChangePassword = passwordStatus.canChangePassword;
   if (isLoadingProfile) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl p-0 flex flex-col max-h-[90vh]">
+        <DialogContent className="max-w-[90%] sm:max-w-4xl max-h-[90vh]">
           <DialogTitle className="sr-only">Profile Settings</DialogTitle>
-          <ScrollArea >
-            <div className="flex items-center justify-center py-12 px-4 sm:px-6">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-8 h-8 border-2  border-t-transparent rounded-full"
-              />
-              <span className="ml-3">Loading profile...</span>
-            </div>
-          </ScrollArea>
+          <div className="flex items-center justify-center py-8 sm:py-12">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="h-6 w-6 sm:h-8 sm:w-8 border-2 border-primary border-t-transparent rounded-full"
+            />
+            <span className="ml-3 text-sm sm:text-base">Loading profile...</span>
+          </div>
         </DialogContent>
       </Dialog>
     );
   }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl px-2 flex flex-col max-h-[90vh]">
-        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 space-y-3">
-          <DialogTitle className="flex items-center space-x-2 text-lg sm:text-xl">
-            <User className="w-5 h-5" />
-            <span>Profile Settings</span>
+      <DialogContent className="max-w-[90%] sm:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 flex-shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+            <User className="h-4 w-4 sm:h-5 sm:w-5" />
+            Profile Settings
           </DialogTitle>
-          <DialogDescription className="text-sm sm:text-base">
+          <DialogDescription className="text-sm">
             Manage your account information, avatar, and privacy preferences
           </DialogDescription>
-        </DialogHeader>{" "}
-        <ScrollArea
-          className="flex overflow-y-auto rounded-md   
-          [scrollbar-width:thin]
-          [scrollbar-color:var(--scrollbar-thumb) transparent]"
-        >
-          <div className="space-y-4 sm:space-y-6 py-3 px-4 sm:px-6">
-            {/* Success Message */}
+        </DialogHeader>
+
+        <ScrollArea className="flex-1 overflow-auto">
+          <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 pb-4 sm:pb-6">
+            {/* Success Messages */}
             <AnimatePresence>
               {saveSuccess && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="flex items-center space-x-2 p-3 rounded-xl text-green-600 bg-green-100 dark:bg-green-900/20"
+                  className="flex items-center gap-2 p-4 rounded-lg bg-green-50 text-green-700 border border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800"
                 >
-                  <Check className="w-4 h-4" />
+                  <Check className="h-4 w-4" />
+                  <span className="text-sm font-medium">Profile saved successfully!</span>
+                </motion.div>
+              )}
+              
+              {passwordChangeSuccess && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex items-center gap-2 p-4 rounded-lg bg-green-50 text-green-700 border border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800"
+                >
+                  <Check className="h-4 w-4" />
                   <span className="text-sm font-medium">
-                    Profile saved successfully!
+                    Password {passwordStatus.hasPassword ? "changed" : "set"} successfully!
                   </span>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* General Error Message */}
+            {/* General Error Messages */}
             {errors.general && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center space-x-2 p-3 rounded-xl text-destructive bg-destructive/10 dark:bg-destructive/20"
+                className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10 text-destructive border border-destructive/20"
               >
-                <AlertCircle className="w-4 h-4" />
+                <AlertCircle className="h-4 w-4" />
                 <span className="text-sm">{errors.general}</span>
+              </motion.div>
+            )}
+            
+            {errors.password && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10 text-destructive border border-destructive/20"
+              >
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm">{errors.password}</span>
+              </motion.div>
+            )}
+            
+            {errors.delete && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10 text-destructive border border-destructive/20"
+              >
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm">{errors.delete}</span>
               </motion.div>
             )}
 
@@ -448,164 +654,146 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
               animate={{ opacity: 1, y: 0 }}
               className="relative"
             >
-              {" "}
-              <div className="p-4 sm:p-6 rounded-2xl relative overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5">
-                <div className="relative flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6">
-                  {/* Avatar Section */}
-                  <div className="relative flex-shrink-0">
-                    <Avatar className="size-20 sm:size-24 border-4 border-background shadow-lg ring-2 ring-primary/10 hover:ring-primary/20 transition">
-                      <AvatarImage
-                        src={avatarPreview || session?.user?.image || ""}
-                        className="object-cover"
-                      />
-                      <AvatarFallback
-                        className="text-lg sm:text-2xl font-semibold bg-primary/20"
-                      >
-                        {getInitials(
-                          name ||
-                            session?.user?.name ||
-                            session?.user?.email ||
-                            "U"
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-                    {isEditing && (
-                      <div className="absolute -bottom-2 -right-2 flex gap-1">
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          className="size-8 rounded-full shadow-lg hover:shadow-md hover:bg-secondary/80 transition-all"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={isUploading}
-                        >
-                          {isUploading ? (
-                            <motion.div
-                              animate={{ rotate: 360 }}
-                              transition={{
-                                duration: 1,
-                                repeat: Infinity,
-                                ease: "linear",
-                              }}
-                              className="size-4 border-2 border-primary border-t-transparent rounded-full"
-                            />
-                          ) : (
-                            <Camera className="size-4" />
+              <Card className="overflow-hidden bg-gradient-to-br from-primary/5 to-primary/10 py-0">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col items-center gap-4 sm:gap-6 sm:flex-row sm:items-start">
+                    {/* Avatar Section */}
+                    <div className="relative flex-shrink-0">
+                      <Avatar className="h-20 w-20 sm:h-24 sm:w-24 border-4 border-background shadow-lg">
+                        <AvatarImage
+                          src={avatarPreview || session?.user?.image || ""}
+                          className="object-cover"
+                        />
+                        <AvatarFallback className="text-xl sm:text-2xl font-semibold bg-primary/20">
+                          {getInitials(
+                            name ||
+                              session?.user?.name ||
+                              session?.user?.email ||
+                              "U"
                           )}
-                        </Button>
-
-                        {(avatarPreview || session?.user?.image) && (
+                        </AvatarFallback>
+                      </Avatar>
+                      
+                      {isEditing && (
+                        <div className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 flex gap-1">
                           <Button
                             size="icon"
-                            variant="destructive"
-                            className="size-8 rounded-full shadow-lg hover:shadow-md hover:bg-destructive/90 transition-all"
-                            onClick={handleRemoveAvatar}
+                            variant="secondary"
+                            className="h-7 w-7 sm:h-8 sm:w-8 rounded-full shadow-lg"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading}
                           >
-                            <Trash2 className="size-4" />
+                            {isUploading ? (
+                              <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{
+                                  duration: 1,
+                                  repeat: Infinity,
+                                  ease: "linear",
+                                }}
+                                className="h-3 w-3 sm:h-4 sm:w-4 border-2 border-primary border-t-transparent rounded-full"
+                              />
+                            ) : (
+                              <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
+                            )}
                           </Button>
-                        )}
-                      </div>
-                    )}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarUpload}
-                      aria-label="Upload profile picture"
-                      title="Upload profile picture"
-                      className="hidden"
-                    />
-                  </div>
-                  
-                  {/* Profile Info */}
-                  <div className="flex-1 text-center sm:text-left">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-y-2">
-                      <h3 className="text-xl sm:text-2xl font-bold tracking-tight">
-                        {name || session?.user?.name || "User"}
-                      </h3>
-                      <Button
-                        variant={isEditing ? "destructive" : "outline"}
-                        size="sm"
-                        onClick={() =>
-                          isEditing ? handleCancel() : setIsEditing(true)
-                        }
-                        className={cn(
-                          cardStyles.roundedInput,
-                          "w-full sm:w-auto transition-colors"
-                        )}
-                        disabled={isSaving}
-                      >
-                        {isEditing ? (
-                          <>
-                            <X className={cardStyles.buttonIcon} />
-                            Cancel
-                          </>
-                        ) : (
-                          <>
-                            <Edit2 className={cardStyles.buttonIcon} />
-                            Edit Profile
-                          </>
-                        )}
-                      </Button>
-                    </div>
 
-                    <p
-                      className={cn(
-                        "text-muted-foreground mb-3",
-                        cardStyles.responsiveText,
-                        "line-clamp-3"
+                          {(avatarPreview || session?.user?.image) && (
+                            <Button
+                              size="icon"
+                              variant="destructive"
+                              className="h-7 w-7 sm:h-8 sm:w-8 rounded-full shadow-lg"
+                              onClick={handleRemoveAvatar}
+                            >
+                              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </Button>
+                          )}
+                        </div>
                       )}
-                    >
-                      {bio || "AI enthusiast and technology lover"}
-                    </p>
+                      
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                        aria-label="Upload profile picture"
+                      />
+                    </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-y-2 sm:gap-x-4 text-sm text-muted-foreground">
-                      <div className={cn(cardStyles.flexCenter, "sm:justify-start gap-x-1")}>
-                        <div className={cn(cardStyles.statusIndicator, "bg-green-500 animate-pulse")} />
-                        <span className="text-green-600 font-medium">
-                          Online
-                        </span>
+                    {/* Profile Info */}
+                    <div className="flex-1 text-center sm:text-left w-full sm:w-auto">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                        <h3 className="text-xl sm:text-2xl font-bold tracking-tight leading-tight">
+                          {name || session?.user?.name || "User"}
+                        </h3>
+                        <Button
+                          variant={isEditing ? "destructive" : "outline"}
+                          size="sm"
+                          onClick={() => isEditing ? handleCancel() : setIsEditing(true)}
+                          disabled={isSaving}
+                          className="w-full sm:w-auto"
+                        >
+                          {isEditing ? (
+                            <>
+                              <X className="h-4 w-4 mr-2" />
+                              Cancel
+                            </>
+                          ) : (
+                            <>
+                              <Edit2 className="h-4 w-4 mr-2" />
+                              Edit Profile
+                            </>
+                          )}
+                        </Button>
                       </div>
-                      <div className={cn(cardStyles.iconText, "sm:justify-start text-muted-foreground/80")}>
-                        <Calendar className="size-4" />
-                        <span>
-                          Joined {new Date(stats.joinDate).toLocaleDateString()}
-                        </span>
+
+                      <p className="text-muted-foreground mb-3 sm:mb-4 line-clamp-3 text-sm sm:text-base">
+                        {bio || "AI enthusiast and technology lover"}
+                      </p>
+
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center justify-center sm:justify-start gap-2">
+                          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300 text-xs">
+                            <div className="h-2 w-2 rounded-full bg-green-500 mr-1 animate-pulse" />
+                            Online
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-center sm:justify-start gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <span className="text-xs sm:text-sm">Joined {new Date(stats.joinDate).toLocaleDateString()}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>{" "}
-                {errors.avatar && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={cn(
-                      "mt-4 p-2 rounded-md bg-destructive/10",
-                      cardStyles.iconText,
-                      "text-destructive text-sm"
-                    )}
-                  >
-                    <AlertCircle className="size-4 flex-shrink-0" />
-                    <span>{errors.avatar}</span>
-                  </motion.div>
-                )}
-              </div>
+
+                  {errors.avatar && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 flex items-center gap-2 p-3 rounded-md bg-destructive/10 text-destructive text-sm"
+                    >
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      <span>{errors.avatar}</span>
+                    </motion.div>
+                  )}
+                </CardContent>
+              </Card>
             </motion.div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
               {/* Personal Information */}
-              <Card className="border-2 hover:border-primary/20 transition-colors">
-                <CardHeader className="pb-4">
-                  <CardTitle
-                    className={cn(cardStyles.iconText, "text-base sm:text-lg font-semibold")}
-                  >
-                    <User className="size-4 text-primary" />
-                    <span>Personal Information</span>
+              <Card>
+                <CardHeader className="pb-3 sm:pb-4">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <User className="h-4 w-4 text-primary" />
+                    Personal Information
                   </CardTitle>
-                  <CardDescription className="text-sm text-muted-foreground/80">
+                  <CardDescription className="text-sm">
                     Your basic profile details
                   </CardDescription>
                 </CardHeader>
-                <CardContent className={cardStyles.contentSection}>
+                <CardContent className="space-y-3 sm:space-y-4">
                   {renderFormField(
                     "Full Name",
                     name,
@@ -623,22 +811,22 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                     "email",
                     "email",
                     true
-                  )}{" "}
-                  <div className={cardStyles.formField}>
-                    <label className="text-sm font-medium">Bio</label>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Bio</Label>
                     {isEditing ? (
                       <div>
                         <Textarea
                           value={bio}
                           onChange={(e) => setBio(e.target.value)}
                           className={cn(
-                            cardStyles.roundedInput, 
-                            "resize-none min-h-[80px] transition-colors duration-200 focus:border-primary/50",
+                            "resize-none min-h-[60px] sm:min-h-[80px] transition-colors duration-200 text-sm sm:text-base",
                             bio.length >= 450 ? "border-amber-400" : ""
                           )}
                           placeholder="Tell us about yourself..."
                           maxLength={500}
-                          rows={3}
+                          rows={2}
                           disabled={isSaving}
                         />
                         <div className="flex justify-end mt-1">
@@ -651,11 +839,12 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground bg-muted/40 p-2 rounded-lg">
+                      <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
                         {bio || "No bio added"}
-                      </p>
+                      </div>
                     )}
                   </div>
+                  
                   {renderFormField(
                     "Phone Number",
                     phone,
@@ -669,35 +858,29 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
 
               {/* Professional Information */}
               <Card>
-                <CardHeader className="pb-4">
-                  {" "}
-                  <CardTitle
-                    className={cn(cardStyles.iconText, "text-base sm:text-lg")}
-                  >
-                    <Briefcase className="size-4" />
-                    <span>Professional Information</span>
+                <CardHeader className="pb-3 sm:pb-4">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Briefcase className="h-4 w-4 text-primary" />
+                    Professional Information
                   </CardTitle>
                   <CardDescription className="text-sm">
                     Your work and professional details
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 sm:space-y-4">
                   {renderFormField(
                     "Job Title",
                     jobTitle,
                     setJobTitle,
                     "Software Engineer"
                   )}
-
                   {renderFormField("Company", company, setCompany, "Acme Corp")}
-
                   {renderFormField(
                     "Location",
                     location,
                     setLocation,
                     "San Francisco, CA"
                   )}
-
                   {renderFormField(
                     "Website",
                     website,
@@ -712,25 +895,21 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
 
             {/* Privacy Settings */}
             <Card>
-              <CardHeader className="pb-4">
-                {" "}
-                <CardTitle
-                  className={cn(cardStyles.iconText, "text-base sm:text-lg")}
-                >
-                  <Shield className="size-4" />
-                  <span>Privacy Settings</span>
+              <CardHeader className="pb-3 sm:pb-4">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Shield className="h-4 w-4 text-primary" />
+                  Privacy Settings
                 </CardTitle>
                 <CardDescription className="text-sm">
                   Control what information is visible to others
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {" "}
-                  <div className={cardStyles.settingRow}>
-                    <div className={cardStyles.iconText}>
-                      <Mail className="size-4 text-muted-foreground" />
-                      <span className="text-sm">Show Email</span>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <Label className="text-sm">Show Email</Label>
                     </div>
                     <Switch
                       checked={showEmail}
@@ -738,10 +917,11 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                       disabled={!isEditing || isSaving}
                     />
                   </div>
-                  <div className={cardStyles.settingRow}>
-                    <div className={cardStyles.iconText}>
-                      <Phone className="size-4 text-muted-foreground" />
-                      <span className="text-sm">Show Phone</span>
+                  
+                  <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <Label className="text-sm">Show Phone</Label>
                     </div>
                     <Switch
                       checked={showPhone}
@@ -749,10 +929,11 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                       disabled={!isEditing || isSaving}
                     />
                   </div>
-                  <div className={cardStyles.settingRow}>
-                    <div className={cardStyles.iconText}>
-                      <MapPin className="size-4 text-muted-foreground" />
-                      <span className="text-sm">Show Location</span>
+                  
+                  <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors sm:col-span-2 lg:col-span-1">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <Label className="text-sm">Show Location</Label>
                     </div>
                     <Switch
                       checked={showLocation}
@@ -766,9 +947,9 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
 
             {/* Usage Statistics */}
             <Card>
-              <CardHeader className="pb-4">
-                {" "}
-                <CardTitle className={cn("text-base sm:text-lg")}>
+              <CardHeader className="pb-3 sm:pb-4">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <BarChart3 className="h-4 w-4 text-primary" />
                   Usage Statistics
                 </CardTitle>
                 <CardDescription className="text-sm">
@@ -777,7 +958,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
               </CardHeader>
               <CardContent>
                 {isLoadingStats ? (
-                  <div className={cn(cardStyles.flexCenter, "py-8")}>
+                  <div className="flex items-center justify-center py-6 sm:py-8">
                     <motion.div
                       animate={{ rotate: 360 }}
                       transition={{
@@ -785,94 +966,401 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                         repeat: Infinity,
                         ease: "linear",
                       }}
-                      className="size-6 border-2 border-primary border-t-transparent rounded-full"
+                      className="h-5 w-5 sm:h-6 sm:w-6 border-2 border-primary border-t-transparent rounded-full"
                     />
                     <span className="ml-3 text-sm">Loading stats...</span>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                     <motion.div
                       whileHover={{ scale: 1.02 }}
-                      className={cardStyles.statCard}
+                      className="text-center p-3 sm:p-4 rounded-lg border bg-primary/5 hover:bg-primary/10 transition-colors"
                     >
-                      <div className="text-xl sm:text-2xl font-bold text-primary">
+                      <div className="text-lg sm:text-2xl font-bold text-primary mb-1">
                         {stats.conversations}
                       </div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">
+                      <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                        <MessageCircle className="h-3 w-3" />
                         Conversations
                       </div>
                     </motion.div>
 
                     <motion.div
                       whileHover={{ scale: 1.02 }}
-                      className={cardStyles.statCard}
+                      className="text-center p-3 sm:p-4 rounded-lg border bg-primary/5 hover:bg-primary/10 transition-colors"
                     >
-                      <div className="text-xl sm:text-2xl font-bold text-primary">
+                      <div className="text-lg sm:text-2xl font-bold text-primary mb-1">
                         {stats.messages}
                       </div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">
+                      <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                        <Mail className="h-3 w-3" />
                         Messages
                       </div>
                     </motion.div>
 
                     <motion.div
                       whileHover={{ scale: 1.02 }}
-                      className={cardStyles.statCard}
+                      className="text-center p-3 sm:p-4 rounded-lg border bg-primary/5 hover:bg-primary/10 transition-colors"
                     >
-                      <div className="text-xl sm:text-2xl font-bold text-primary">
+                      <div className="text-lg sm:text-2xl font-bold text-primary mb-1">
                         {stats.chatTime}
                       </div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">
+                      <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                        <Clock className="h-3 w-3" />
                         Chat Time
                       </div>
                     </motion.div>
 
                     <motion.div
                       whileHover={{ scale: 1.02 }}
-                      className={cardStyles.statCard}
+                      className="text-center p-3 sm:p-4 rounded-lg border bg-primary/5 hover:bg-primary/10 transition-colors"
                     >
-                      <div className="text-xl sm:text-2xl font-bold text-primary">
+                      <div className="text-lg sm:text-2xl font-bold text-primary mb-1">
                         {stats.daysActive}
                       </div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">
+                      <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                        <Calendar className="h-3 w-3" />
                         Days Active
-                      </div>{" "}
+                      </div>
                     </motion.div>
                   </div>
                 )}
               </CardContent>
             </Card>
+
+            {/* Security Settings */}
+            <Card>
+              <CardHeader className="pb-3 sm:pb-4">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Key className="h-4 w-4 text-primary" />
+                  Security Settings
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  Manage your account security and authentication
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 sm:space-y-6">
+                {/* Change Password Section */}
+                {canChangePassword && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-sm">Password</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {passwordStatus.hasPassword 
+                            ? "Change your account password" 
+                            : passwordStatus.isGoogleUser 
+                              ? "Set a password for your Google account" 
+                              : "Set your account password"
+                          }
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowChangePassword(!showChangePassword)}
+                        disabled={isChangingPassword || isSaving}
+                        className="text-sm"
+                      >
+                        <Key className="h-4 w-4 mr-2" />
+                        {passwordStatus.hasPassword ? "Change Password" : "Set Password"}
+                      </Button>
+                    </div>
+
+                    <AnimatePresence>
+                      {showChangePassword && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+                            {/* Current Password - Only show if user has existing password */}
+                            {passwordStatus.requiresCurrentPassword && (
+                              <div className="space-y-2">
+                                <Label className="text-sm font-medium">
+                                  Current Password <span className="text-destructive">*</span>
+                                </Label>
+                                <div className="relative">
+                                  <Input
+                                    type={showCurrentPassword ? "text" : "password"}
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    className={cn(
+                                      "pr-10 transition-colors duration-200",
+                                      errors.currentPassword ? "border-destructive focus-visible:ring-destructive/20" : ""
+                                    )}
+                                    placeholder="Enter your current password"
+                                    disabled={isChangingPassword}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                    disabled={isChangingPassword}
+                                  >
+                                    {showCurrentPassword ? (
+                                      <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                      <Eye className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                                {errors.currentPassword && (
+                                  <div className="flex items-center gap-1 text-xs text-destructive">
+                                    <AlertCircle className="h-3 w-3" />
+                                    <span>{errors.currentPassword}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* New Password */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">
+                                {passwordStatus.hasPassword ? "New Password" : "Password"} <span className="text-destructive">*</span>
+                              </Label>
+                              <div className="relative">
+                                <Input
+                                  type={showNewPassword ? "text" : "password"}
+                                  value={newPassword}
+                                  onChange={(e) => setNewPassword(e.target.value)}
+                                  className={cn(
+                                    "pr-10 transition-colors duration-200",
+                                    errors.newPassword ? "border-destructive focus-visible:ring-destructive/20" : ""
+                                  )}
+                                  placeholder={`Enter your ${passwordStatus.hasPassword ? "new " : ""}password`}
+                                  disabled={isChangingPassword}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                                  onClick={() => setShowNewPassword(!showNewPassword)}
+                                  disabled={isChangingPassword}
+                                >
+                                  {showNewPassword ? (
+                                    <EyeOff className="h-4 w-4" />
+                                  ) : (
+                                    <Eye className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                              {errors.newPassword && (
+                                <div className="flex items-center gap-1 text-xs text-destructive">
+                                  <AlertCircle className="h-3 w-3" />
+                                  <span>{errors.newPassword}</span>
+                                </div>
+                              )}
+                              <div className="text-xs text-muted-foreground">
+                                Password must be at least 8 characters long
+                              </div>
+                            </div>
+
+                            {/* Confirm Password */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">
+                                Confirm {passwordStatus.hasPassword ? "New " : ""}Password <span className="text-destructive">*</span>
+                              </Label>
+                              <div className="relative">
+                                <Input
+                                  type={showConfirmPassword ? "text" : "password"}
+                                  value={confirmPassword}
+                                  onChange={(e) => setConfirmPassword(e.target.value)}
+                                  className={cn(
+                                    "pr-10 transition-colors duration-200",
+                                    errors.confirmPassword ? "border-destructive focus-visible:ring-destructive/20" : ""
+                                  )}
+                                  placeholder={`Confirm your ${passwordStatus.hasPassword ? "new " : ""}password`}
+                                  disabled={isChangingPassword}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                  disabled={isChangingPassword}
+                                >
+                                  {showConfirmPassword ? (
+                                    <EyeOff className="h-4 w-4" />
+                                  ) : (
+                                    <Eye className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                              {errors.confirmPassword && (
+                                <div className="flex items-center gap-1 text-xs text-destructive">
+                                  <AlertCircle className="h-3 w-3" />
+                                  <span>{errors.confirmPassword}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex justify-end gap-2 pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCancelPasswordChange}
+                                disabled={isChangingPassword}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={handleChangePassword}
+                                disabled={isChangingPassword || !newPassword || !confirmPassword || (passwordStatus.requiresCurrentPassword && !currentPassword)}
+                              >
+                                {isChangingPassword ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    {passwordStatus.hasPassword ? "Changing..." : "Setting..."}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Save className="h-4 w-4 mr-2" />
+                                    {passwordStatus.hasPassword ? "Change Password" : "Set Password"}
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                {/* Delete Account Section */}
+                <div className="space-y-3 pt-4 border-t border-destructive/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-sm text-destructive">Delete Account</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Permanently delete your account and all data
+                      </p>
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={isDeletingAccount || isSaving}
+                          className="text-sm"
+                        >
+                          <UserX className="h-4 w-4 mr-2" />
+                          Delete Account
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="max-w-md">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                            <AlertCircle className="h-5 w-5" />
+                            Delete Account
+                          </AlertDialogTitle>
+                          <AlertDialogDescription className="space-y-2">
+                            <p>
+                              This action cannot be undone. This will permanently delete your
+                              account and remove all your data from our servers.
+                            </p>
+                            <p className="font-medium">
+                              All of the following will be permanently deleted:
+                            </p>
+                            <ul className="list-disc list-inside text-sm space-y-1 ml-2">
+                              <li>Your profile and account information</li>
+                              <li>All conversations and chat history</li>
+                              <li>Preferences and settings</li>
+                              <li>Usage statistics</li>
+                            </ul>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">
+                              Type your email to confirm: <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                              type="email"
+                              value={deleteConfirmEmail}
+                              onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                              className={cn(
+                                "transition-colors duration-200",
+                                errors.delete ? "border-destructive focus-visible:ring-destructive/20" : ""
+                              )}
+                              placeholder={sessionUser?.email || ""}
+                              disabled={isDeletingAccount}
+                            />
+                            {errors.delete && (
+                              <div className="flex items-center gap-1 text-xs text-destructive">
+                                <AlertCircle className="h-3 w-3" />
+                                <span>{errors.delete}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={handleCancelDeleteAccount} disabled={isDeletingAccount}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleDeleteAccount}
+                            disabled={isDeletingAccount || deleteConfirmEmail !== sessionUser?.email}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            {isDeletingAccount ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Deleting...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Account
+                              </>
+                            )}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </ScrollArea>
-        {/* Action Buttons - Outside ScrollArea for accessibility */}
-        
+
+        {/* Action Buttons */}
         <AnimatePresence>
           {isEditing && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="flex justify-end gap-3 pb-3 pr-3"
+              className="flex justify-end gap-3 p-4 sm:p-6 pt-3 sm:pt-4 border-t bg-background flex-shrink-0"
             >
               <Button
                 onClick={handleSave}
-                className="rounded-lg px-6 py-2 w-fit"
                 disabled={isSaving}
+                className="min-w-[100px] sm:min-w-[120px] text-sm sm:text-base"
               >
-                <span className="flex items-center gap-2">
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      Save Changes
-                    </>
-                  )}
-                </span>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
               </Button>
             </motion.div>
           )}

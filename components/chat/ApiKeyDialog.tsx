@@ -73,7 +73,7 @@ export function ApiKeyDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-w-[90%] sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Free Messages Used Up</DialogTitle>
           <DialogDescription>

@@ -28,7 +28,6 @@ import { cn } from '@/lib/utils';
 interface VoiceChatProps {
   isOpen: boolean;
   onClose: () => void;
-  onToggle: () => void;
   voiceChatState: {
     isConnecting: boolean;
     isConnected: boolean;
@@ -49,7 +48,7 @@ interface VoiceChatProps {
   };
 }
 
-export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceChatProps) {
+export function VoiceChat({ isOpen, onClose, voiceChatState }: VoiceChatProps) {
   const [isMinimized, setIsMinimized] = useState(false);
   
   const {
@@ -87,11 +86,6 @@ export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceCh
     if (isConnecting) return 'Connecting...';
     return 'Disconnected';
   };
-  const getConnectionColor = () => {
-    if (isConnected) return 'text-green-500';
-    if (isConnecting) return 'text-yellow-500';
-    return 'text-muted-foreground';
-  };
 
   const handleStartCall = async () => {
     clearError();
@@ -111,46 +105,9 @@ export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceCh
     }
   };
 
-  // Floating button when closed
+  // Return null when closed - no floating button
   if (!isOpen) {
-    return (
-      <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="fixed bottom-20 right-4 z-50"
-      >
-        <Button
-          onClick={onToggle}
-          size="icon"
-          className={cn(
-            "h-10 w-10 md:h-12 md:w-12 rounded-full shadow-lg relative",
-            isConnected ? "bg-green-500 hover:bg-green-600" : "btn-primary"
-          )}
-        >
-          {isConnected ? (
-            <PhoneOff className="h-4 w-4 md:h-5 md:w-5" />
-          ) : (
-            <Phone className="h-4 w-4 md:h-5 md:w-5" />
-          )}
-          
-          {/* Activity indicators */}
-          {isListening && (
-            <motion.div
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-              className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-background"
-            />
-          )}
-          {isSpeaking && (
-            <motion.div
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 0.5, repeat: Infinity }}
-              className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-background"
-            />
-          )}
-        </Button>
-      </motion.div>
-    );
+    return null;
   }
 
   // Minimized state
@@ -159,20 +116,22 @@ export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceCh
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="fixed bottom-4 right-4 z-50"
-      >        <Card className={cn(
-          "w-48 md:w-56 shadow-2xl border-2",
-          isConnected ? "border-green-500" : isConnecting ? "border-yellow-500" : "border-muted-foreground"
+        className="fixed bottom-20 left-4 md:bottom-6 md:left-6 z-40"
+      >
+        <Card className={cn(
+          "w-64 md:w-72 shadow-xl border-2 backdrop-blur-sm bg-card/95",
+          isConnected ? "border-green-500/50" : isConnecting ? "border-yellow-500/50" : "border-border"
         )}>
-          <CardContent className="p-3 md:p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">                <div 
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-2">
+                <div 
                   className={cn(
                     "w-2 h-2 rounded-full",
-                    isConnected ? "bg-green-500" : isConnecting ? "bg-yellow-500" : "bg-muted-foreground"
+                    isConnected ? "bg-green-500" : isConnecting ? "bg-yellow-500 animate-pulse" : "bg-muted-foreground"
                   )}
                 />
-                <span className="text-xs font-medium">
+                <span className="text-sm font-medium">
                   {getConnectionStatus()}
                 </span>
               </div>
@@ -180,41 +139,42 @@ export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceCh
               <div className="flex items-center space-x-1">
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
                   onClick={() => setIsMinimized(false)}
-                  className="h-5 w-5"
+                  className="h-8 w-8 p-0 hover:bg-muted"
                 >
-                  <Maximize2 className="w-3 h-3" />
+                  <Maximize2 className="w-4 h-4" />
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
                   onClick={onClose}
-                  className="h-5 w-5"
+                  className="h-8 w-8 p-0 hover:bg-muted"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-4 h-4" />
                 </Button>
               </div>
             </div>
 
             {isConnected && (
-              <div className="flex items-center justify-center space-x-2">
+              <div className="flex items-center justify-center space-x-3">
                 <Button
-                  variant={isListening ? "destructive" : "outline"}
-                  size="icon"
+                  variant={isListening ? "destructive" : "default"}
+                  size="sm"
                   onClick={handleToggleListening}
-                  className="h-6 w-6 rounded-full"
+                  className="h-8 px-3 rounded-full"
                 >
-                  {isListening ? <Square className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                  {isListening ? <Square className="w-3 h-3 mr-1" /> : <Play className="w-3 h-3 mr-1" />}
+                  {isListening ? "Stop" : "Talk"}
                 </Button>
                 
                 <Button
                   variant="destructive"
-                  size="icon"
+                  size="sm"
                   onClick={handleEndCall}
-                  className="h-6 w-6 rounded-full"
+                  className="h-8 w-8 p-0 rounded-full"
                 >
-                  <PhoneOff className="w-3 h-3" />
+                  <PhoneOff className="w-4 h-4" />
                 </Button>
               </div>
             )}
@@ -231,22 +191,32 @@ export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceCh
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="fixed bottom-4 right-4 z-50"
+        className="fixed inset-x-4 bottom-20 md:right-4 md:left-auto md:bottom-6 md:w-96 z-40"
       >
-        <Card className="w-80 md:w-96 shadow-2xl border-2" style={{
-          borderColor: getConnectionColor()
-        }}>
+        <Card className={cn(
+          "shadow-2xl border-2 backdrop-blur-sm bg-card/95",
+          isConnected ? "border-green-500/50" : isConnecting ? "border-yellow-500/50" : "border-border"
+        )}>
           <CardContent className="p-4 md:p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">                <div 
+              <div className="flex items-center space-x-3">
+                <div 
                   className={cn(
                     "w-3 h-3 rounded-full",
-                    isConnected ? "bg-green-500" : isConnecting ? "bg-yellow-500" : "bg-muted-foreground"
+                    isConnected ? "bg-green-500" : isConnecting ? "bg-yellow-500 animate-pulse" : "bg-muted-foreground"
                   )}
                 />
                 <span className="text-sm font-medium">
-                  Voice Chat - {getConnectionStatus()}
+                  Voice Chat
+                </span>
+                <span className={cn(
+                  "text-xs px-2 py-1 rounded-full",
+                  isConnected ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                  isConnecting ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                  "bg-muted text-muted-foreground"
+                )}>
+                  {getConnectionStatus()}
                 </span>
               </div>
               
@@ -254,19 +224,19 @@ export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceCh
                 {getConnectionIcon()}
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
                   onClick={() => setIsMinimized(true)}
-                  className="h-6 w-6"
+                  className="h-8 w-8 p-0 hover:bg-muted"
                 >
-                  <Minimize2 className="w-3 h-3" />
+                  <Minimize2 className="w-4 h-4" />
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
                   onClick={onClose}
-                  className="h-6 w-6"
+                  className="h-8 w-8 p-0 hover:bg-muted"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-4 h-4" />
                 </Button>
               </div>
             </div>
@@ -335,8 +305,8 @@ export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceCh
                       <span className="text-muted-foreground">Ready</span>
                     )}
                   </div>
-                  <span className="text-muted-foreground">
-                    Quality: {connectionQuality}
+                  <span className="text-muted-foreground capitalize">
+                    {connectionQuality}
                   </span>
                 </div>
               </div>
@@ -344,25 +314,25 @@ export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceCh
 
             {/* Connection Status */}
             {isConnecting && (
-              <div className="flex items-center justify-center py-4">
+              <div className="flex items-center justify-center py-6">
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="w-5 h-5 md:w-6 md:h-6 border-2 border-primary border-t-transparent rounded-full mr-2"
+                  className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full mr-2"
                 />
                 <span className="text-sm">Establishing connection...</span>
               </div>
             )}
 
             {/* Controls */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               {!isConnected && !isConnecting ? (
                 <Button
                   onClick={handleStartCall}
-                  className="w-full btn-primary h-10 md:h-12"
+                  className="w-full h-12 md:h-14 text-base font-medium bg-primary hover:bg-primary/90"
                   disabled={!!error}
                 >
-                  <Phone className="w-4 h-4 mr-2" />
+                  <Phone className="w-5 h-5 mr-2" />
                   Start Voice Chat
                 </Button>
               ) : (
@@ -372,10 +342,10 @@ export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceCh
                     <Button
                       onClick={handleToggleListening}
                       className={cn(
-                        "w-full h-12 md:h-14 rounded-xl text-base font-medium",
+                        "w-full h-12 md:h-14 rounded-xl text-base font-medium transition-all",
                         isListening 
-                          ? "bg-red-500 hover:bg-red-600 text-white" 
-                          : "btn-primary"
+                          ? "bg-red-500 hover:bg-red-600 text-white shadow-lg" 
+                          : "bg-primary hover:bg-primary/90 shadow-md"
                       )}
                       disabled={isSpeaking}
                     >
@@ -394,43 +364,43 @@ export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceCh
                   )}
 
                   {/* Secondary Controls */}
-                  <div className="flex items-center justify-center space-x-2 md:space-x-3">
+                  <div className="flex items-center justify-center space-x-3">
                     <Button
                       variant={isMuted ? "destructive" : "outline"}
                       size="icon"
                       onClick={toggleMute}
-                      className="rounded-full h-8 w-8 md:h-10 md:w-10"
+                      className="rounded-full h-10 w-10 md:h-12 md:w-12 transition-all hover:scale-105"
                       disabled={!isConnected}
                     >
-                      {isMuted ? <MicOff className="w-3 h-3 md:w-4 md:h-4" /> : <Mic className="w-3 h-3 md:w-4 md:h-4" />}
+                      {isMuted ? <MicOff className="w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
                     </Button>
                     
                     <Button
                       variant={isSpeakerMuted ? "destructive" : "outline"}
                       size="icon"
                       onClick={toggleSpeaker}
-                      className="rounded-full h-8 w-8 md:h-10 md:w-10"
+                      className="rounded-full h-10 w-10 md:h-12 md:w-12 transition-all hover:scale-105"
                       disabled={!isConnected}
                     >
-                      {isSpeakerMuted ? <VolumeX className="w-3 h-3 md:w-4 md:h-4" /> : <Volume2 className="w-3 h-3 md:w-4 md:h-4" />}
+                      {isSpeakerMuted ? <VolumeX className="w-4 h-4 md:w-5 md:h-5" /> : <Volume2 className="w-4 h-4 md:w-5 md:h-5" />}
                     </Button>
                     
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="icon"
-                      className="rounded-full h-8 w-8 md:h-10 md:w-10"
+                      className="rounded-full h-10 w-10 md:h-12 md:w-12 transition-all hover:scale-105"
                       disabled={!isConnected}
                     >
-                      <Settings className="w-3 h-3 md:w-4 md:h-4" />
+                      <Settings className="w-4 h-4 md:w-5 md:h-5" />
                     </Button>
                     
                     <Button
                       variant="destructive"
                       size="icon"
                       onClick={handleEndCall}
-                      className="rounded-full h-8 w-8 md:h-10 md:w-10"
+                      className="rounded-full h-10 w-10 md:h-12 md:w-12 transition-all hover:scale-105"
                     >
-                      <PhoneOff className="w-3 h-3 md:w-4 md:h-4" />
+                      <PhoneOff className="w-4 h-4 md:w-5 md:h-5" />
                     </Button>
                   </div>
                 </>
@@ -439,11 +409,11 @@ export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceCh
 
             {/* Help Text */}
             {!isConnected && !isConnecting && !error && (
-              <div className="mt-4 text-center">
-                <p className="text-xs text-muted-foreground mb-2">
+              <div className="mt-4 text-center space-y-2">
+                <p className="text-sm text-muted-foreground">
                   Start a voice conversation with Lunara using speech recognition.
                 </p>
-                <div className="flex items-center justify-center space-x-1 text-xs text-muted-foreground">
+                <div className="flex items-center justify-center space-x-2 text-xs text-muted-foreground">
                   <MessageCircle className="w-3 h-3" />
                   <span>Speak naturally and Lunara will respond</span>
                 </div>
@@ -452,7 +422,7 @@ export function VoiceChat({ isOpen, onClose, onToggle, voiceChatState }: VoiceCh
 
             {isConnected && !isListening && !isSpeaking && (
               <div className="mt-4 text-center">
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Click &ldquo;Start Talking&rdquo; and speak to Lunara. She&apos;ll listen and respond with voice.
                 </p>
               </div>

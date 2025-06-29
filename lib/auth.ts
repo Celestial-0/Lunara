@@ -89,7 +89,7 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ user, account }) {
-      // Allow OAuth account linking for same email
+      // Handle Google OAuth sign-in
       if (account?.provider === "google") {
         try {
           const existingUser = await prisma.user.findUnique({
@@ -121,9 +121,54 @@ export const authOptions: NextAuthOptions = {
                 },
               });
             }
+          } else {
+            // Create new user for Google OAuth
+            const newUser = await prisma.user.create({
+              data: {
+                email: user.email!,
+                name: user.name,
+                image: user.image,
+                emailVerified: new Date(), // Google accounts are pre-verified
+              },
+            });
+
+            // Create the Google account link
+            await prisma.account.create({
+              data: {
+                userId: newUser.id,
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                refresh_token: account.refresh_token,
+                access_token: account.access_token,
+                expires_at: account.expires_at,
+                token_type: account.token_type,
+                scope: account.scope,
+                id_token: account.id_token,
+                session_state: account.session_state,
+              },
+            });
+
+            // Create default user profile
+            await prisma.userProfile.create({
+              data: {
+                userId: newUser.id,
+                avatar: user.image,
+              },
+            });
+
+            // Create default user preferences
+            await prisma.userPreferences.create({
+              data: {
+                userId: newUser.id,
+              },
+            });
+
+            // Update the user object with the new ID
+            user.id = newUser.id;
           }
         } catch (error) {
-          console.error("Account linking error:", error);
+          console.error("Google OAuth error:", error);
           return false;
         }
       }
