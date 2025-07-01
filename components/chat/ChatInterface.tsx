@@ -263,7 +263,7 @@ export function ChatInterface({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Card>
+        <Card className="border-0">
           <CardContent className="p-8 text-center">
             <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full mx-auto mb-4 animate-spin" />
             <div>
