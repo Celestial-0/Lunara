@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     // Check message limit and API key availability
     const hasReachedLimit = preferences.messageCount >= FREE_MESSAGE_LIMIT;
     const hasPersonalApiKey = preferences.geminiApiKey && preferences.geminiApiKey.trim() !== '';
-    
+
     if (hasReachedLimit && !hasPersonalApiKey) {
       return NextResponse.json({
         error: 'FREE_LIMIT_REACHED',
@@ -116,14 +116,7 @@ export async function POST(request: NextRequest) {
     const personality: AIPersonality = preferences?.aiPersonality &&
       validPersonalities.includes(preferences.aiPersonality as AIPersonality) ?
       preferences.aiPersonality as AIPersonality :
-      'friendly';// Save user message first
-    await prisma.message.create({
-      data: {
-        conversationId,
-        content: message,
-        role: 'user',
-      },
-    });    // Prepare context for AI
+      'friendly';    // Prepare context for AI (don't save user message yet)
     const conversationHistory = conversation.messages.map(msg => ({
       role: msg.role as Message['role'],
       content: msg.content,
@@ -136,7 +129,13 @@ export async function POST(request: NextRequest) {
     });
 
     // Generate AI response
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }); const personalityPrompts: Record<AIPersonality, string> = {
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+
+    });
+
+    // Define personality prompts
+    const personalityPrompts: Record<AIPersonality, string> = {
       friendly: "You are Lunara, a warm, friendly, and supportive AI companion. Be conversational, empathetic, and helpful. Use a casual but respectful tone.",
       professional: "You are Lunara, a professional and efficient AI assistant. Be direct, reliable, and business-focused while remaining helpful and courteous.",
       creative: "You are Lunara, a creative and imaginative AI companion. Be innovative, colorful in your language, and think outside the box while being helpful.",
@@ -155,62 +154,73 @@ export async function POST(request: NextRequest) {
     const result = await model.generateContent(fullPrompt);
     const aiResponse = result.response.text();
 
-    // Save AI response
-    const assistantMessage = await prisma.message.create({
-      data: {
-        conversationId,
-        content: aiResponse,
-        role: 'assistant',
-      },
-    });    // Generate conversation title if this is the first exchange or title is still "New Conversation"
-    let conversationTitle = conversation.title;
-    const shouldGenerateTitle = !conversationTitle ||
-      conversationTitle === "New Conversation" ||
+    // Determine if we should generate a title
+    const shouldGenerateTitle = !conversation.title ||
+      conversation.title === "New Conversation" ||
       conversation.messages.length === 0;
 
-    if (shouldGenerateTitle) {
-      try {
-        const titlePrompt = `Based on this conversation starter: "${message}", generate a short, descriptive title (max 50 characters) for this conversation. Only return the title, nothing else.`;
-        const titleResult = await model.generateContent(titlePrompt);
-        conversationTitle = titleResult.response.text().trim().replace(/['"]/g, '');
-
-        // Limit title length and ensure it's not empty
-        if (conversationTitle.length > 50) {
-          conversationTitle = conversationTitle.substring(0, 50).trim();
-        }
-        if (!conversationTitle) {
-          conversationTitle = "Chat Conversation";
-        }
-
-        // Update conversation with generated title
-        await prisma.conversation.update({
-          where: { id: conversationId },
-          data: { title: conversationTitle },
-        });
-      } catch (error) {
-        console.error('Failed to generate title:', error);
-        conversationTitle = conversation.title || "Chat Conversation";
-      }
-    }
-
-    // Update conversation timestamp
-    await prisma.conversation.update({
-      where: { id: conversationId },
-      data: { updatedAt: new Date() },
-    });
-
-    // Increment message count for users using free tier (not their own API key)
-    if (!hasPersonalApiKey) {
-      await prisma.userPreferences.update({
+    // Start async operations (don't await them)
+    Promise.all([
+      // Save user message
+      prisma.message.create({
+        data: {
+          conversationId,
+          content: message,
+          role: 'user',
+        },
+      }),
+      // Save AI response
+      prisma.message.create({
+        data: {
+          conversationId,
+          content: aiResponse,
+          role: 'assistant',
+        },
+      }),
+      // Update conversation timestamp
+      prisma.conversation.update({
+        where: { id: conversationId },
+        data: { updatedAt: new Date() },
+      }),
+      // Increment message count for users using free tier
+      !hasPersonalApiKey ? prisma.userPreferences.update({
         where: { userId },
         data: { messageCount: preferences.messageCount + 1 },
-      });
+      }) : Promise.resolve(),
+    ]).catch(error => {
+      console.error('Failed to save messages to database:', error);
+    });
+
+    // Generate title asynchronously if needed
+    const conversationTitle = conversation.title || "Chat Conversation";
+    if (shouldGenerateTitle) {
+      // Don't await this - let it run in background
+      model.generateContent(`Based on this conversation starter: "${message}", generate a short, descriptive title (max 50 characters) for this conversation. Only return the title, nothing else.`)
+        .then(titleResult => {
+          let newTitle = titleResult.response.text().trim().replace(/['"]/g, '');
+
+          // Limit title length and ensure it's not empty
+          if (newTitle.length > 50) {
+            newTitle = newTitle.substring(0, 50).trim();
+          }
+          if (!newTitle) {
+            newTitle = "Chat Conversation";
+          }
+
+          // Update conversation with generated title asynchronously
+          return prisma.conversation.update({
+            where: { id: conversationId },
+            data: { title: newTitle },
+          });
+        })
+        .catch(error => {
+          console.error('Failed to generate or save title:', error);
+        });
     }
 
     return NextResponse.json({
       content: aiResponse,
       title: conversationTitle,
-      messageId: assistantMessage.id,
     });
 
   } catch (error) {
