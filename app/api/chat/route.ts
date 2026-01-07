@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { google } from '@ai-sdk/google';
+import { streamText } from 'ai';
 import { z } from 'zod';
 import { AIPersonality, Message } from '@/types/types';
 
@@ -109,30 +110,16 @@ export async function POST(request: NextRequest) {
 
     // Determine which API key to use
     const apiKeyToUse = hasPersonalApiKey ? preferences.geminiApiKey! : process.env.GEMINI_API_KEY!;
-    const genAI = new GoogleGenerativeAI(apiKeyToUse);
+
+    // Set the API key for the Google AI SDK
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKeyToUse;
 
     // Ensure the personality is valid using type guard
     const validPersonalities: AIPersonality[] = ['friendly', 'professional', 'creative', 'analytical', 'empathetic'];
     const personality: AIPersonality = preferences?.aiPersonality &&
       validPersonalities.includes(preferences.aiPersonality as AIPersonality) ?
       preferences.aiPersonality as AIPersonality :
-      'friendly';    // Prepare context for AI (don't save user message yet)
-    const conversationHistory = conversation.messages.map(msg => ({
-      role: msg.role as Message['role'],
-      content: msg.content,
-    }));
-
-    // Add the new user message to context
-    conversationHistory.push({
-      role: 'user',
-      content: message,
-    });
-
-    // Generate AI response
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-
-    });
+      'friendly';
 
     // Define personality prompts
     const personalityPrompts: Record<AIPersonality, string> = {
@@ -145,83 +132,96 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = personalityPrompts[personality];
 
-    const contextPrompt = conversationHistory.length > 1
-      ? `\n\nConversation history:\n${conversationHistory.slice(0, -1).map(msg => `${msg.role}: ${msg.content}`).join('\n')}\n\nUser: ${message}`
-      : `User: ${message}`;
+    // Prepare conversation history for AI
+    const conversationHistory = conversation.messages.map(msg => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
 
-    const fullPrompt = `${systemPrompt}${contextPrompt}\n\nLunara:`;
-
-    const result = await model.generateContent(fullPrompt);
-    const aiResponse = result.response.text();
-
-    // Determine if we should generate a title
-    const shouldGenerateTitle = !conversation.title ||
-      conversation.title === "New Conversation" ||
-      conversation.messages.length === 0;
-
-    // Start async operations (don't await them)
-    Promise.all([
-      // Save user message
-      prisma.message.create({
-        data: {
-          conversationId,
-          content: message,
-          role: 'user',
-        },
-      }),
-      // Save AI response
-      prisma.message.create({
-        data: {
-          conversationId,
-          content: aiResponse,
-          role: 'assistant',
-        },
-      }),
-      // Update conversation timestamp
-      prisma.conversation.update({
-        where: { id: conversationId },
-        data: { updatedAt: new Date() },
-      }),
-      // Increment message count for users using free tier
-      !hasPersonalApiKey ? prisma.userPreferences.update({
-        where: { userId },
-        data: { messageCount: preferences.messageCount + 1 },
-      }) : Promise.resolve(),
-    ]).catch(error => {
-      console.error('Failed to save messages to database:', error);
+    // Add the new user message to context
+    conversationHistory.push({
+      role: 'user',
+      content: message,
     });
 
-    // Generate title asynchronously if needed
-    const conversationTitle = conversation.title || "Chat Conversation";
-    if (shouldGenerateTitle) {
-      // Don't await this - let it run in background
-      model.generateContent(`Based on this conversation starter: "${message}", generate a short, descriptive title (max 50 characters) for this conversation. Only return the title, nothing else.`)
-        .then(titleResult => {
-          let newTitle = titleResult.response.text().trim().replace(/['"]/g, '');
+    // Create the AI model with streaming
+    const model = google('gemma-3-27b-it'); // Instruction-tuned Gemma 3 27B
 
-          // Limit title length and ensure it's not empty
-          if (newTitle.length > 50) {
-            newTitle = newTitle.substring(0, 50).trim();
+    // Generate streaming response
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      messages: conversationHistory,
+      async onFinish({ text }) {
+        // Save messages to database after streaming completes
+        try {
+          await Promise.all([
+            // Save user message
+            prisma.message.create({
+              data: {
+                conversationId,
+                content: message,
+                role: 'user',
+              },
+            }),
+            // Save AI response
+            prisma.message.create({
+              data: {
+                conversationId,
+                content: text,
+                role: 'assistant',
+              },
+            }),
+            // Update conversation timestamp
+            prisma.conversation.update({
+              where: { id: conversationId },
+              data: { updatedAt: new Date() },
+            }),
+            // Increment message count for users using free tier
+            !hasPersonalApiKey ? prisma.userPreferences.update({
+              where: { userId },
+              data: { messageCount: preferences.messageCount + 1 },
+            }) : Promise.resolve(),
+          ]);
+
+          // Generate title asynchronously if needed
+          const shouldGenerateTitle = !conversation.title ||
+            conversation.title === "New Conversation" ||
+            conversation.messages.length === 0;
+
+          if (shouldGenerateTitle) {
+            // Generate title in background
+            const titleModel = google('gemma-3-27b-it');
+            const titleResult = await streamText({
+              model: titleModel,
+              prompt: `Based on this conversation starter: "${message}", generate a short, descriptive title (max 50 characters) for this conversation. Only return the title, nothing else.`,
+            });
+
+            try {
+              const titleText = await titleResult.text;
+              let newTitle = titleText.trim().replace(/['"]/g, '');
+              if (newTitle.length > 50) {
+                newTitle = newTitle.substring(0, 50).trim();
+              }
+              if (!newTitle) {
+                newTitle = "Chat Conversation";
+              }
+              await prisma.conversation.update({
+                where: { id: conversationId },
+                data: { title: newTitle },
+              });
+            } catch (error) {
+              console.error('Failed to generate title:', error);
+            }
           }
-          if (!newTitle) {
-            newTitle = "Chat Conversation";
-          }
-
-          // Update conversation with generated title asynchronously
-          return prisma.conversation.update({
-            where: { id: conversationId },
-            data: { title: newTitle },
-          });
-        })
-        .catch(error => {
-          console.error('Failed to generate or save title:', error);
-        });
-    }
-
-    return NextResponse.json({
-      content: aiResponse,
-      title: conversationTitle,
+        } catch (error) {
+          console.error('Failed to save messages to database:', error);
+        }
+      },
     });
+
+    // Return the streaming response
+    return result.toTextStreamResponse();
 
   } catch (error) {
     console.error('Chat API error:', error);

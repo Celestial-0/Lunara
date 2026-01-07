@@ -19,7 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useChatStore } from "@/lib/store";
 import { signOut, useSession } from "next-auth/react";
-import { ThemeToggle } from "@/components/core/ThemeToggle";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { ProfileDialog } from "./ProfileDialog";
 import { ConversationManager } from "./ConversationManager";
 import { NotificationCenter } from "./NotificationCenter";
@@ -427,7 +427,7 @@ export function Sidebar({
                     </div>
                   </motion.button>{" "}
                   <div className="flex space-x-2">
-                    <ThemeToggle />
+                    <AnimatedThemeToggler />
                     <Button
                       variant="ghost"
                       size="icon"
@@ -652,7 +652,7 @@ export function Sidebar({
               isCollapsed ? "flex-col space-y-2" : "space-x-2"
             )}
           >
-            <ThemeToggle />
+            <AnimatedThemeToggler />
             <Button
               variant="ghost"
               size="icon"

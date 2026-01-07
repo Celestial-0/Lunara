@@ -50,30 +50,8 @@ export async function POST(request: NextRequest) {
 
     const { apiKey } = validationResult.data;
 
-    // Test the API key by making a simple request
-    try {
-      const testResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: "Hello" }]
-          }]
-        }),
-      });
-
-      if (!testResponse.ok) {
-        throw new Error('Invalid API key');
-      }
-    } catch (error) {
-      console.error('API key validation error:', error);
-      return NextResponse.json(
-        { error: 'Invalid Gemini API key. Please check your key and try again.' },
-        { status: 400 }
-      );
-    }
-
     // Update or create user preferences with the API key
+    // Note: API key will be validated on first use in chat
     await prisma.userPreferences.upsert({
       where: { userId },
       update: { geminiApiKey: apiKey },
@@ -91,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Gemini API key saved successfully. You can now continue chatting without limits!'
+      message: 'API key saved successfully! It will be validated when you send your next message.'
     });
 
   } catch (error) {

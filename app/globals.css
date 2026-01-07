@@ -45,7 +45,7 @@
 
 :root {
   --radius: 0.75rem;
-  
+
   /* Light theme - OKLCH colors */
   --background: oklch(98% 0.002 106);
   --foreground: oklch(15% 0.004 106);
@@ -66,14 +66,14 @@
   --border: oklch(91% 0.006 106);
   --input: oklch(91% 0.006 106);
   --ring: oklch(15% 0.004 106);
-  
+
   /* Chart colors - OKLCH */
   --chart-1: oklch(45% 0.089 258);
   --chart-2: oklch(65% 0.162 258);
   --chart-3: oklch(80% 0.142 85);
   --chart-4: oklch(75% 0.089 180);
   --chart-5: oklch(65% 0.162 300);
-  
+
   /* Sidebar colors - OKLCH */
   --sidebar: oklch(98% 0.002 106);
   --sidebar-foreground: oklch(15% 0.004 106);
@@ -83,7 +83,7 @@
   --sidebar-accent-foreground: oklch(15% 0.004 106);
   --sidebar-border: oklch(91% 0.006 106);
   --sidebar-ring: oklch(15% 0.004 106);
-  
+
   /* Status colors - OKLCH */
   --success: oklch(65% 0.15 145);
   --success-foreground: oklch(98% 0.013 145);
@@ -114,14 +114,14 @@
   --border: oklch(25% 0.015 106);
   --input: oklch(25% 0.015 106);
   --ring: oklch(85% 0.008 106);
-  
+
   /* Chart colors - OKLCH dark */
   --chart-1: oklch(65% 0.204 330);
   --chart-2: oklch(70% 0.162 145);
   --chart-3: oklch(75% 0.142 85);
   --chart-4: oklch(70% 0.089 29);
   --chart-5: oklch(70% 0.162 285);
-  
+
   /* Sidebar colors - OKLCH dark */
   --sidebar: oklch(15% 0.006 106);
   --sidebar-foreground: oklch(98% 0.002 106);
@@ -131,7 +131,7 @@
   --sidebar-accent-foreground: oklch(98% 0.002 106);
   --sidebar-border: oklch(25% 0.015 106);
   --sidebar-ring: oklch(85% 0.008 106);
-  
+
   /* Status colors - OKLCH dark */
   --success: oklch(65% 0.15 145);
   --success-foreground: oklch(15% 0.004 145);
@@ -145,16 +145,21 @@
   * {
     @apply border-border outline-ring/50;
   }
-  
+
   html {
     @apply scroll-smooth text-balance;
     color-scheme: light dark;
   }
-  
+
   body {
     @apply bg-background text-foreground font-sans antialiased overflow-x-hidden transition-colors duration-300;
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+::view-transition-old(root), ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
 }

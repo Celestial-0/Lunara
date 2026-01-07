@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
 import {
   Send,
   Mic,
@@ -120,7 +119,7 @@ export function ChatInterface({
   // Auto-scroll when component mounts or conversation changes
   useEffect(() => {
     // Short delay to ensure the DOM is fully rendered
-    setTimeout(() => scrollToBottom(true), 2000);
+    setTimeout(() => scrollToBottom(true), 100);
   }, [currentConversation?.id]);
 
   const handleSendMessage = async () => {
@@ -155,25 +154,96 @@ export function ChatInterface({
       updateConversationLocally(conversationId, {
         messages: [...(currentConversation?.messages || []), tempUserMessage],
         updatedAt: new Date(),
-      });      // Set typing indicator
-      setIsTyping(true); 
-      
-      // Send to backend
-      const chatResponse = await apiClient.sendChatMessage(conversationId, userMessage);
+      });
 
-      // Remove typing indicator
+      // Set typing indicator
+      setIsTyping(true);
+
+      // Create AI message placeholder for streaming
+      const aiMessageId = `temp-ai-${Date.now()}`;
+      const aiMessage = {
+        id: aiMessageId,
+        conversationId,
+        content: "",
+        role: "assistant" as const,
+        createdAt: new Date(),
+      };
+
+      // Add empty AI message to UI
+      updateConversationLocally(conversationId, {
+        messages: [...(currentConversation?.messages || []), tempUserMessage, aiMessage],
+        updatedAt: new Date(),
+      });
+
+      // Remove typing indicator since we're showing the message now
       setIsTyping(false);
 
-      // Update conversation title if it was generated
-      if (chatResponse.title && currentConversation && 
-          (!currentConversation.title || currentConversation.title === "New Conversation")) {
-        updateConversationLocally(conversationId, {
-          title: chatResponse.title,
-        });
+      // Stream the response
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ conversationId, message: userMessage }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
       }
 
-      // Force refresh to get the real messages from backend
-      await forceRefresh();
+      // Read the streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = "";
+
+      console.log('Starting to read stream...');
+
+      if (reader) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              console.log('Stream complete. Total text:', accumulatedText.length, 'chars');
+              break;
+            }
+
+            const chunk = decoder.decode(value, { stream: true });
+            console.log('Received chunk:', chunk.substring(0, 50) + '...');
+
+            // toTextStreamResponse() returns plain text, so just append it
+            if (chunk) {
+              accumulatedText += chunk;
+
+              // Update the AI message with accumulated text
+              const updatedAiMessage = {
+                ...aiMessage,
+                content: accumulatedText,
+              };
+
+              updateConversationLocally(conversationId, {
+                messages: [...(currentConversation?.messages || []), tempUserMessage, updatedAiMessage],
+                updatedAt: new Date(),
+              });
+
+              // Auto-scroll as text streams in
+              scrollToBottom(true);
+            }
+          }
+        } catch (streamError) {
+          console.error('Stream reading error:', streamError);
+          throw streamError;
+        } finally {
+          reader.releaseLock();
+        }
+      }
+
+      // Check if we got any response
+      if (!accumulatedText || accumulatedText.trim().length === 0) {
+        throw new Error('Received empty response from AI');
+      }
+
+      // Refresh in background to sync with database (don't await)
+      forceRefresh().catch(err => console.error('Background refresh failed:', err));
     } catch (error) {
       console.error("Failed to send message:", error);
       setIsTyping(false);
@@ -309,8 +379,8 @@ export function ChatInterface({
               {/* AI Avatar */}
               <div className="relative">
                 <Avatar className="h-12 w-12 border-2 border-primary/20">
-                  <AvatarImage 
-                    src="https://v8sn4u5d65xaovfn.public.blob.vercel-storage.com/Lunara%20AI%20Icon.PNG" 
+                  <AvatarImage
+                    src="https://v8sn4u5d65xaovfn.public.blob.vercel-storage.com/Lunara%20AI%20Icon.PNG"
                     alt="Lunara AI"
                   />
                   <AvatarFallback className="bg-primary/10 text-primary">
@@ -370,8 +440,8 @@ export function ChatInterface({
                     size="sm"
                     className={cn(
                       "h-10 w-10 p-0 relative transition-all duration-200",
-                      voiceChat.isConnected 
-                        ? "bg-green-500 hover:bg-green-600" 
+                      voiceChat.isConnected
+                        ? "bg-green-500 hover:bg-green-600"
                         : "hover:bg-muted"
                     )}
                     onClick={handleVoiceChatToggle}
@@ -423,12 +493,12 @@ export function ChatInterface({
                   currentConversation.messages.length === 0) &&
                   !isTyping && (
                     <div className="text-center py-8 px-4">
-                      <Card className="mx-auto max-w-md">
+                      <Card className="mx-auto max-w-md border-0">
                         <CardHeader className="text-center pb-4">
                           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-primary/10 border border-primary/20">
                             <Sparkles className="w-8 h-8 text-primary" />
                           </div>
-                          
+
                           <h2 className="text-2xl font-bold mb-2 text-primary">
                             Welcome to Lunara!
                           </h2>
@@ -487,18 +557,16 @@ export function ChatInterface({
                   )}
 
                 {/* Message List */}
-                <AnimatePresence mode="popLayout">
-                  {currentConversation?.messages?.map((msg) => (
-                    <MessageBubble
-                      key={msg.id}
-                      message={msg}
-                      isMobile={isMobile}
-                      userAvatar={getUserAvatar()}
-                      userInitials={getUserInitials()}
-                    />
-                  ))}
-                </AnimatePresence>
-                
+                {currentConversation?.messages?.map((msg) => (
+                  <MessageBubble
+                    key={msg.id}
+                    message={msg}
+                    isMobile={isMobile}
+                    userAvatar={getUserAvatar()}
+                    userInitials={getUserInitials()}
+                  />
+                ))}
+
                 {/* Typing Indicator */}
                 {isTyping && <TypingIndicator isMobile={isMobile} />}
               </div>
@@ -597,16 +665,16 @@ export function ChatInterface({
               </Tooltip>
             </div>
           </div>
-        </div> 
-        
+        </div>
+
         <VoiceChatWrapper
           isOpen={showVoiceChat}
           onClose={() => setShowVoiceChat(false)}
         />
-        
+
         {/* Settings Dialog */}
         <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
-        
+
         {/* API Key Dialog */}
         <ApiKeyDialog
           isOpen={showApiKeyDialog}

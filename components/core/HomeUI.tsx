@@ -24,7 +24,7 @@ import {
   Globe,
   Star,
 } from "lucide-react";
-import { ThemeToggle } from "./ThemeToggle";
+import { AnimatedThemeToggler } from "../ui/animated-theme-toggler";
 
 const FeatureCard = ({
   children,
@@ -145,7 +145,7 @@ export const HomeUI = () => {
               Lunara
             </span>
           </motion.div>
-          <ThemeToggle />
+          <AnimatedThemeToggler />
         </div>
       </motion.header>
 

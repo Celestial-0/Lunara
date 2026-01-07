@@ -12,7 +12,7 @@ import {  Mail, Loader2, Eye, EyeOff, Sparkles, ArrowLeft } from 'lucide-react';
 import { FaGoogle } from "react-icons/fa";
 //FcGoogle is not used, using FaGoogle instead
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ThemeToggle } from '@/components/core/ThemeToggle';
+import { AnimatedThemeToggler } from '../ui/animated-theme-toggler';
 
 export function SignInForm() {
   const [email, setEmail] = useState('');
@@ -142,7 +142,7 @@ export function SignInForm() {
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Home</span>
           </motion.button>
-          <ThemeToggle />
+          <AnimatedThemeToggler />
         </div>
       </motion.header>
 

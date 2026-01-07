@@ -42,7 +42,7 @@ interface SpeechRecognitionErrorEvent extends Event {
 }
 
 interface SpeechRecognitionConstructor {
-  new (): SpeechRecognition;
+  new(): SpeechRecognition;
 }
 
 declare global {
@@ -88,17 +88,17 @@ export function useVoiceChat() {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
-    
+
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
     }
-    
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-    
+
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       audioContextRef.current.close();
       audioContextRef.current = null;
@@ -116,21 +116,23 @@ export function useVoiceChat() {
 
   useEffect(() => {
     return cleanup;
-  }, [cleanup]);  const speak = useCallback(async (text: string) => {
+  }, [cleanup]);
+
+  const speak = useCallback(async (text: string) => {
     try {
       setState(prev => ({ ...prev, isSpeaking: true }));
 
-      // Use Web Speech API for TTS (fallback)
+      // Use Web Speech API for TTS
       if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
         utterance.volume = state.isSpeakerMuted ? 0 : 1;
-        
+
         utterance.onend = () => {
           setState(prev => ({ ...prev, isSpeaking: false }));
         };
-        
+
         utterance.onerror = () => {
           setState(prev => ({ ...prev, isSpeaking: false, error: "Speech synthesis failed" }));
         };
@@ -141,10 +143,10 @@ export function useVoiceChat() {
       }
     } catch (error) {
       console.error("Speech synthesis error:", error);
-      setState(prev => ({ 
-        ...prev, 
+      setState(prev => ({
+        ...prev,
         isSpeaking: false,
-        error: "Failed to speak response" 
+        error: "Failed to speak response"
       }));
     }
   }, [state.isSpeakerMuted]);
@@ -152,7 +154,7 @@ export function useVoiceChat() {
   const initializeSpeechRecognition = useCallback(() => {
     // Check for speech recognition support
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
+
     if (!SpeechRecognition) {
       setState(prev => ({ ...prev, error: "Speech recognition is not supported in this browser." }));
       return false;
@@ -160,7 +162,7 @@ export function useVoiceChat() {
 
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
-    
+
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
@@ -178,24 +180,34 @@ export function useVoiceChat() {
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error("Speech recognition error:", event.error);
-      setState(prev => ({ 
-        ...prev, 
+      setState(prev => ({
+        ...prev,
         isListening: false,
-        error: `Speech recognition error: ${event.error}` 
+        error: `Speech recognition error: ${event.error}`
       }));
     };
 
     recognition.onresult = async (event: SpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript;
       console.log("Transcript:", transcript);
-      
+
       setState(prev => ({ ...prev, isListening: false }));
-      
+
       try {
-        // Call Gemini API
-        const result = await callGemini(transcript);
-        const responseText = result.candidates[0].content.parts[0].text;
-        
+        // Call backend chat API instead of direct Gemini call
+        const response = await fetch('/api/voice-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: transcript }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get AI response');
+        }
+
+        const data = await response.json();
+        const responseText = data.content;
+
         // Speak the response
         await speak(responseText);
       } catch (error) {
@@ -206,54 +218,22 @@ export function useVoiceChat() {
 
     return true;
   }, [speak]);
-
-  const callGemini = async (text: string) => {
-    const body = {
-      system_instruction: {
-        "parts": [
-          {
-            "text": "You are Lunara, an AI assistant. The user is interacting with you via voice and the text you are given is a transcription of what the user has said. You have to reply in short answers that can be converted back to voice and played to the user. Add emotions and personality to your text responses. Keep responses conversational and under 100 words."
-          }
-        ]
-      },
-      contents: [{
-        "parts": [{ "text": text }]
-      }]
-    };
-
-    // Note: In production, the API key should be handled securely on the backend
-    const API_KEY = process.env.GEMINI_API_KEY || '';
-    
-    if (!API_KEY) {
-      throw new Error('Gemini API key not configured');
-    }
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.statusText}`);
-    }    return await response.json();
-  };
   const startAudioLevelMonitoring = useCallback(() => {
     if (!analyserRef.current) return;
 
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    
+
     const updateAudioLevel = () => {
       if (!analyserRef.current) return;
-      
+
       analyserRef.current.getByteFrequencyData(dataArray);
       const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
-      
+
       setState(prev => ({ ...prev, audioLevel: average / 255 }));
-      
+
       animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
     };
-    
+
     updateAudioLevel();
   }, []);
 
@@ -264,7 +244,7 @@ export function useVoiceChat() {
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 256;
       source.connect(analyserRef.current);
-      
+
       startAudioLevelMonitoring();
     } catch (error) {
       console.error('Failed to initialize audio context:', error);
@@ -275,13 +255,13 @@ export function useVoiceChat() {
   const startVoiceChat = useCallback(async () => {
     try {
       setState(prev => ({ ...prev, isConnecting: true, error: null }));
-      
+
       // Initialize speech recognition
       if (!initializeSpeechRecognition()) {
         setState(prev => ({ ...prev, isConnecting: false }));
         return;
       }
-      
+
       // Get user media for audio level monitoring
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -290,10 +270,10 @@ export function useVoiceChat() {
           autoGainControl: true,
         },
       });
-      
+
       streamRef.current = stream;
       await initializeAudioContext(stream);
-      
+
       // Simulate connection establishment
       setTimeout(() => {
         setState(prev => ({
@@ -303,10 +283,10 @@ export function useVoiceChat() {
           connectionQuality: 'good',
         }));
       }, 1000);
-      
+
     } catch (error) {
       console.error('Failed to start voice chat:', error);
-      
+
       let errorMessage = 'Failed to start voice chat';
       if (error instanceof Error) {
         if (error.name === 'NotAllowedError') {
@@ -317,7 +297,7 @@ export function useVoiceChat() {
           errorMessage = 'Microphone is being used by another application';
         }
       }
-      
+
       setState(prev => ({
         ...prev,
         isConnecting: false,
@@ -336,7 +316,7 @@ export function useVoiceChat() {
 
   const startListening = useCallback(() => {
     if (!recognitionRef.current || !state.isConnected || state.isListening) return;
-    
+
     try {
       recognitionRef.current.start();
     } catch (error) {
@@ -363,7 +343,7 @@ export function useVoiceChat() {
 
   const toggleSpeaker = useCallback(() => {
     setState(prev => ({ ...prev, isSpeakerMuted: !prev.isSpeakerMuted }));
-    
+
     // Stop current speech if muting
     if (!state.isSpeakerMuted && 'speechSynthesis' in window) {
       speechSynthesis.cancel();

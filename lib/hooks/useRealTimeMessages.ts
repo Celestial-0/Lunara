@@ -16,7 +16,7 @@ export function useRealTimeMessages(conversationId: string | null) {
     try {
       // Get latest messages from server
       const messages = await apiClient.getMessages(conversationId);
-      
+
       // Check if there are new messages
       if (messages.length > lastMessageCountRef.current) {
         // Update conversation with new messages
@@ -24,7 +24,7 @@ export function useRealTimeMessages(conversationId: string | null) {
           messages,
           updatedAt: new Date(),
         });
-        
+
         lastMessageCountRef.current = messages.length;
         lastCheckRef.current = Date.now();
       }
@@ -41,7 +41,7 @@ export function useRealTimeMessages(conversationId: string | null) {
     setIsPolling(true);
     intervalRef.current = setInterval(async () => {
       await checkForNewMessages();
-    }, 3000);
+    }, 5000); // Increased to 5 seconds to reduce server load
   }, [checkForNewMessages]);
 
   // Memoize cleanup to avoid missing dependency warning
@@ -53,20 +53,25 @@ export function useRealTimeMessages(conversationId: string | null) {
     setIsPolling(false);
   }, []);
 
+  const lastConversationIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!conversationId) {
       cleanup();
+      lastMessageCountRef.current = 0;
+      lastConversationIdRef.current = null;
       return;
     }
 
-    // Initialize last message count
-    if (currentConversation?.messages) {
-      lastMessageCountRef.current = currentConversation.messages.length;
+    // Reset message count when switching to a different conversation
+    if (conversationId !== lastConversationIdRef.current) {
+      lastMessageCountRef.current = currentConversation?.messages?.length || 0;
+      lastConversationIdRef.current = conversationId;
     }
 
     startPolling();
     return cleanup;
-  }, [conversationId, currentConversation?.messages, startPolling, cleanup]);
+  }, [conversationId, startPolling, cleanup]); // Removed currentConversation?.messages to prevent restart loop
 
   const forceRefresh = async () => {
     if (conversationId) {
